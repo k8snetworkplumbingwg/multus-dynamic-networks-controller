@@ -1,0 +1,120 @@
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: dynamic-networks-controller
+rules:
+  - apiGroups: ["k8s.cni.cncf.io"]
+    resources:
+      - '*'
+    verbs:
+      - '*'
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+      - pods/status
+    verbs:
+      - get
+      - update
+  - apiGroups:
+      - ""
+      - events.k8s.io
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
+      - update
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: dynamic-networks-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: dynamic-networks-controller
+subjects:
+  - kind: ServiceAccount
+    name: dynamic-networks-controller
+    namespace: kube-system
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: dynamic-networks-controller
+  namespace: kube-system
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: dynamic-networks-controller-config
+  namespace: kube-system
+  labels:
+    tier: node
+    app: multus-dynamic-networks-controller
+data:
+  dynamic-networks-config.json: |
+    {
+        "chrootDir": "/hostroot",
+        "confDir": "/host/etc/cni/net.d",
+        "socketDir": "/host/run/multus/"
+    }
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: dynamic-networks-controller-ds
+  namespace: kube-system
+  labels:
+    tier: node
+    app: dynamic-networks-controller
+    name: dynamic-networks-controller
+spec:
+  selector:
+    matchLabels:
+      name: dynamic-networks-controller
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        tier: node
+        app: dynamic-networks-controller
+        name: dynamic-networks-controller
+    spec:
+      hostNetwork: true
+      tolerations:
+        - operator: Exists
+          effect: NoSchedule
+        - operator: Exists
+          effect: NoExecute
+      serviceAccountName: dynamic-networks-controller
+      containers:
+        - name: dynamic-networks-controller
+          image: localhost:5000/maiqueb/dynamic-networks-controller:latest
+          command: [ "/dynamic-networks-controller" ]
+          args:
+            - "-config=/etc/dynamic-networks-controller/dynamic-networks-config.json"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "50Mi"
+            limits:
+              cpu: "100m"
+              memory: "50Mi"
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: dynamic-networks-controller-config-dir
+              mountPath: /etc/dynamic-networks-controller/
+              readOnly: true
+      terminationGracePeriodSeconds: 10
+      volumes:
+        - name: dynamic-networks-controller-config-dir
+          configMap:
+            name: dynamic-networks-controller-config
+            items:
+              - key: dynamic-networks-config.json
+                path: dynamic-networks-config.json
