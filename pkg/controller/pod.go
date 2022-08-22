@@ -26,7 +26,10 @@ import (
 	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/logging"
 )
 
-const maxRetries = 2
+const (
+	AdvertisedName = "pod-networks-updates"
+	maxRetries     = 2
+)
 
 type DynamicAttachmentRequestType string
 
@@ -50,7 +53,7 @@ type PodNetworksController struct {
 	broadcaster             record.EventBroadcaster
 	recorder                record.EventRecorder
 	workqueue               workqueue.RateLimitingInterface
-	confDir                 string
+	multusSocketPath        string
 	nadClientSet            nadclient.Interface
 }
 
@@ -60,7 +63,7 @@ func NewPodNetworksController(
 	nadInformers nadinformers.SharedInformerFactory,
 	broadcaster record.EventBroadcaster,
 	recorder record.EventRecorder,
-	confDir string,
+	multusSocketPath string,
 	k8sClientSet kubernetes.Interface,
 	nadClientSet nadclient.Interface,
 ) (*PodNetworksController, error) {
@@ -76,10 +79,10 @@ func NewPodNetworksController(
 		netAttachDefLister:      nadInformers.K8sCniCncfIo().V1().NetworkAttachmentDefinitions().Lister(),
 		recorder:                recorder,
 		broadcaster:             broadcaster,
-		confDir:                 confDir,
+		multusSocketPath:        multusSocketPath,
 		workqueue: workqueue.NewNamedRateLimitingQueue(
 			workqueue.DefaultControllerRateLimiter(),
-			"pod-networks-updates"),
+			AdvertisedName),
 		k8sClientSet: k8sClientSet,
 		nadClientSet: nadClientSet,
 	}
