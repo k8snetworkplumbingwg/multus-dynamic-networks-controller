@@ -5,6 +5,8 @@ IMAGE_REGISTRY ?= quay.io/maiqueb
 IMAGE_NAME ?= multus-dynamic-networks-controller
 IMAGE_TAG ?= latest
 
+.PHONY: manifests
+
 all: build test
 
 build:
@@ -15,6 +17,9 @@ clean:
 
 img-build: build test
 	$(OCI_BIN) build -t ${IMAGE_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} -f images/Dockerfile .
+
+manifests:
+	IMAGE_REGISTRY=${IMAGE_REGISTRY} hack/generate_manifests.sh
 
 test:
 	$(GO) test -v ./...
