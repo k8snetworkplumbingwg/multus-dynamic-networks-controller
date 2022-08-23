@@ -10,6 +10,14 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+    - uses: actions/setup-python@v2
+      with:
+        python-version: 3.x
+
+    - run: |
+        pip3 install --user --upgrade j2cli
+        j2 --version
+
     - uses: actions/checkout@v3
 
     - name: Set up Go
@@ -28,3 +36,13 @@ jobs:
 
     - name: Test
       run: make test
+
+    - name: Generate YAML manifests
+      run: make manifests
+
+    - name: Check manifest correctness
+      run: |
+        if [[ -n $(git status --porcelain 2>/dev/null) ]]; then
+          echo "You probably need to run 'make manifests' and commit the changes"
+          exit 1
+        fi

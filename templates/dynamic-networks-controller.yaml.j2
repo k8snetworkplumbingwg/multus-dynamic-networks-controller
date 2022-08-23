@@ -95,7 +95,7 @@ spec:
       serviceAccountName: dynamic-networks-controller
       containers:
         - name: dynamic-networks-controller
-          image: quay.io/maiqueb/multus-dynamic-networks-controller:latest
+          image: {{ IMAGE_REGISTRY }}/multus-dynamic-networks-controller:latest
           command: [ "/dynamic-networks-controller" ]
           args:
             - "-config=/etc/dynamic-networks-controller/dynamic-networks-config.json"
