@@ -233,7 +233,7 @@ func (pnc *PodNetworksController) addNetworks(netsToAdd []*nadv1.NetworkSelectio
 
 func (pnc *PodNetworksController) removeNetworks(netsToRemove []*nadv1.NetworkSelectionElement, pod *corev1.Pod) error {
 	for i := range netsToRemove {
-		klog.Infof("network to add: %v", netsToRemove[i])
+		klog.Infof("network to remove: %v", netsToRemove[i])
 		pnc.Eventf(pod, corev1.EventTypeNormal, "RemovedInterface", "removed network: %s", netsToRemove[i].Name)
 	}
 
