@@ -24,6 +24,7 @@ jobs:
       uses: golangci/golangci-lint-action@v3
       with:
         version: v1.47.3
+        args: --timeout 3m --verbose cmd/... pkg/...
 
     - name: Test
       run: make test
