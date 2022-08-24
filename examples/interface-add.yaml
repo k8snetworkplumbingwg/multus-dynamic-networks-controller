@@ -1,0 +1,23 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: macvlan1-worker1
+  annotations:
+    k8s.v1.cni.cncf.io/networks: '[
+            {
+                "name": "macvlan1-config",
+                "ips": [ "10.1.1.11/24" ]
+            },
+            {
+                "name": "macvlan1-config",
+                "interface": "ens4"
+            }
+    ]'
+  labels:
+    app: macvlan
+spec:
+  containers:
+    - name: macvlan-worker1
+      image: docker.io/library/alpine:latest
+      command: ["/bin/sleep", "10000"]
