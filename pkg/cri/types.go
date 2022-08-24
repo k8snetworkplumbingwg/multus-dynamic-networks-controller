@@ -7,5 +7,5 @@ const (
 	// Crio represents the CRI-O container runtime
 	Crio RuntimeType = "crio"
 	// Containerd represents the containerd container runtime
-	Containerd = "containerd"
+	Containerd RuntimeType = "containerd"
 )
