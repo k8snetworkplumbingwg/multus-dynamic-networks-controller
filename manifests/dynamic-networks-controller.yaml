@@ -62,7 +62,7 @@ data:
   dynamic-networks-config.json: |
     {
         "criSocketPath": "/path-to-cri-socket",
-        "socketDir": "/path-to-multus-socket"
+        "multusSocketPath": "/path-to-multus-socket"
     }
 ---
 apiVersion: apps/v1
