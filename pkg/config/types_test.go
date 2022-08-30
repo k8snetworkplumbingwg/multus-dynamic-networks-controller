@@ -35,8 +35,8 @@ var _ = Describe("The dynamic network attachment configuration", func() {
 
 	When("a valid configuration file is provided", func() {
 		const (
-			criSocketPath   = "/path/to/socket"
-			multusSocketDir = "/multus/socket/dir"
+			criSocketPath    = "/path/to/socket"
+			multusSocketPath = "/multus/socket/dir/socket.sock"
 		)
 
 		Context("default configuration values", func() {
@@ -79,14 +79,14 @@ var _ = Describe("The dynamic network attachment configuration", func() {
 				Expect(
 					os.WriteFile(
 						configurationFilePath(configurationDir),
-						[]byte(genericConfigString(criSocketPath, multusSocketDir, cri.Crio)), allowAllPermissions),
+						[]byte(genericConfigString(criSocketPath, multusSocketPath, cri.Crio)), allowAllPermissions),
 				).To(Succeed())
 			})
 			It("features the expected CRI socket path and multus socket directory", func() {
 				Expect(
 					LoadConfig(configurationFilePath(configurationDir)),
 				).To(
-					Equal(crioConfig(criSocketPath, multusSocketDir)))
+					Equal(crioConfig(criSocketPath, multusSocketPath)))
 			})
 		})
 	})
@@ -128,11 +128,11 @@ func configContainerRuntime(multusConfig *Multus) cri.RuntimeType {
 	return multusConfig.CriType
 }
 
-func crioConfig(criSocketPath string, multusSocketDir string) *Multus {
+func crioConfig(criSocketPath string, multusSocketPath string) *Multus {
 	return &Multus{
 		CriSocketPath:    criSocketPath,
 		CriType:          cri.Crio,
-		MultusSocketPath: multusSocketDir,
+		MultusSocketPath: multusSocketPath,
 	}
 }
 
