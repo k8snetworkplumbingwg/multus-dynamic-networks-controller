@@ -61,7 +61,7 @@ var _ = Describe("The dynamic network attachment configuration", func() {
 				).To(
 					WithTransform(func(multusConfig *Multus) string {
 						return multusConfig.MultusSocketPath
-					}, Equal(defaultMultusRunDir)))
+					}, Equal(defaultMultusSocketPath)))
 			})
 
 			It("specifies the containerd socket as default", func() {

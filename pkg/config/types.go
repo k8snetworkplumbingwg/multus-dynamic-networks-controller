@@ -13,7 +13,7 @@ const (
 	// DefaultDynamicNetworksControllerConfigFile is the default path of the config file
 	DefaultDynamicNetworksControllerConfigFile = "/etc/cni/net.d/multus.d/daemon-config.json"
 	containerdSocketPath                       = "/run/containerd/containerd.sock"
-	defaultMultusRunDir                        = "/var/run/multus-cni/"
+	defaultMultusSocketPath                    = "/var/run/multus-cni/multus.sock"
 )
 
 type Multus struct {
@@ -41,7 +41,7 @@ func LoadConfig(configPath string) (*Multus, error) {
 	}
 
 	if daemonNetConf.MultusSocketPath == "" {
-		daemonNetConf.MultusSocketPath = defaultMultusRunDir
+		daemonNetConf.MultusSocketPath = defaultMultusSocketPath
 	}
 
 	if daemonNetConf.CriSocketPath == "" {
