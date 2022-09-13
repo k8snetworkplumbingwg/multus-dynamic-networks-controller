@@ -61,8 +61,7 @@ metadata:
 data:
   dynamic-networks-config.json: |
     {
-        "criSocketPath": "/path-to-cri-socket",
-        "multusSocketPath": "/path-to-multus-socket"
+        "multusSocketPath": "/host/run/multus/multus.sock"
     }
 ---
 apiVersion: apps/v1
@@ -115,6 +114,8 @@ spec:
             - name: dynamic-networks-controller-config-dir
               mountPath: /etc/dynamic-networks-controller/
               readOnly: true
+            - name: multus-server-socket
+              mountPath: /host/run/multus/multus.sock
       terminationGracePeriodSeconds: 10
       volumes:
         - name: dynamic-networks-controller-config-dir
@@ -123,3 +124,7 @@ spec:
             items:
               - key: dynamic-networks-config.json
                 path: dynamic-networks-config.json
+        -  name: multus-server-socket
+           hostPath:
+             path: /run/multus/multus.sock
+             type: Socket
