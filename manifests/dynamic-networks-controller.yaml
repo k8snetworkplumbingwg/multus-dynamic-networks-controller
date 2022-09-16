@@ -61,6 +61,7 @@ metadata:
 data:
   dynamic-networks-config.json: |
     {
+        "criSocketPath": "/host/run/containerd/containerd.sock",
         "multusSocketPath": "/host/run/multus/multus.sock"
     }
 ---
@@ -116,6 +117,8 @@ spec:
               readOnly: true
             - name: multus-server-socket
               mountPath: /host/run/multus/multus.sock
+            - name: containerd-socket
+              mountPath: /host/run/containerd/containerd.sock
       terminationGracePeriodSeconds: 10
       volumes:
         - name: dynamic-networks-controller-config-dir
@@ -127,4 +130,8 @@ spec:
         -  name: multus-server-socket
            hostPath:
              path: /run/multus/multus.sock
+             type: Socket
+        -  name: containerd-socket
+           hostPath:
+             path: /run/containerd/containerd.sock
              type: Socket

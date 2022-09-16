@@ -5,6 +5,8 @@ IMAGE_REGISTRY ?= quay.io/mduarted
 IMAGE_NAME ?= multus-dynamic-networks-controller
 IMAGE_TAG ?= latest
 
+CRI_SOCKET_PATH ?= "/host/run/containerd/containerd.sock"
+
 .PHONY: manifests
 
 all: build test
@@ -19,7 +21,7 @@ img-build: build test
 	$(OCI_BIN) build -t ${IMAGE_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} -f images/Dockerfile .
 
 manifests:
-	IMAGE_REGISTRY=${IMAGE_REGISTRY} hack/generate_manifests.sh
+	IMAGE_REGISTRY=${IMAGE_REGISTRY} CRI_SOCKET_PATH=${CRI_SOCKET_PATH} hack/generate_manifests.sh
 
 test:
 	$(GO) test -v ./...
