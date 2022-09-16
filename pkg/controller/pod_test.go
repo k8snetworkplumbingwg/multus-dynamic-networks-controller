@@ -25,6 +25,9 @@ import (
 	nadclient "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned"
 	fakenadclient "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned/fake"
 	nadinformers "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/informers/externalversions"
+
+	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/cri"
+	fakecri "github.com/maiqueb/multus-dynamic-networks-controller/pkg/cri/fake"
 )
 
 func TestController(t *testing.T) {
@@ -89,7 +92,15 @@ var _ = Describe("Dynamic Attachment controller", func() {
 				stopChannel = make(chan struct{})
 				const maxEvents = 5
 				eventRecorder = record.NewFakeRecorder(maxEvents)
-				Expect(newDummyPodController(k8sClient, nadClient, stopChannel, eventRecorder, "")).NotTo(BeNil())
+				Expect(
+					newDummyPodController(
+						k8sClient,
+						nadClient,
+						stopChannel,
+						eventRecorder,
+						"",
+						fakecri.NewFakeRuntime(*pod),
+					)).NotTo(BeNil())
 				Expect(func() []nad.NetworkStatus {
 					updatedPod, err := k8sClient.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
 					if err != nil {
@@ -157,7 +168,8 @@ func newDummyPodController(
 	nadClient nadclient.Interface,
 	stopChannel chan struct{},
 	recorder record.EventRecorder,
-	cniConfigPath string) (*dummyPodController, error) {
+	cniConfigPath string,
+	containerRuntime cri.ContainerRuntime) (*dummyPodController, error) {
 	const noResyncPeriod = 0
 	netAttachDefInformerFactory := nadinformers.NewSharedInformerFactory(nadClient, noResyncPeriod)
 	podInformerFactory := v1coreinformerfactory.NewSharedInformerFactory(k8sClient, noResyncPeriod)
@@ -169,7 +181,8 @@ func newDummyPodController(
 		recorder,
 		cniConfigPath,
 		k8sClient,
-		nadClient)
+		nadClient,
+		containerRuntime)
 
 	alwaysReady := func() bool { return true }
 	podController.arePodsSynched = alwaysReady

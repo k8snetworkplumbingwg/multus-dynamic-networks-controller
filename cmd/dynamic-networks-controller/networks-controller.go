@@ -22,6 +22,8 @@ import (
 
 	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/config"
 	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/controller"
+	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/cri"
+	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/cri/containerd"
 	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/logging"
 )
 
@@ -84,6 +86,11 @@ func newController(stopChannel chan struct{}, configuration *config.Multus) (*co
 
 	eventBroadcaster := newEventBroadcaster(k8sClient)
 
+	containerRuntime, err := newContainerRuntime(configuration)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create the CRI: %v", err)
+	}
+
 	podNetworksController, err := controller.NewPodNetworksController(
 		podInformerFactory,
 		nadInformerFactory,
@@ -92,6 +99,7 @@ func newController(stopChannel chan struct{}, configuration *config.Multus) (*co
 		configuration.MultusSocketPath,
 		k8sClient,
 		nadClientSet,
+		containerRuntime,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create the pod networks controller: %v", err)
@@ -134,4 +142,9 @@ func handleSignals(stopChannel chan struct{}, signals ...os.Signal) {
 		<-signalChannel
 		stopChannel <- struct{}{}
 	}()
+}
+
+func newContainerRuntime(configuration *config.Multus) (cri.ContainerRuntime, error) {
+	const withoutTimeout = 0
+	return containerd.NewContainerdRuntime(configuration.CriSocketPath, withoutTimeout)
 }

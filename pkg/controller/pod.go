@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -23,6 +24,7 @@ import (
 	nadlisterv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/listers/k8s.cni.cncf.io/v1"
 
 	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/annotations"
+	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/cri"
 	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/logging"
 )
 
@@ -38,6 +40,7 @@ type DynamicAttachmentRequest struct {
 	PodNamespace    string
 	AttachmentNames []*nadv1.NetworkSelectionElement
 	Type            DynamicAttachmentRequestType
+	PodNetNS        string
 }
 
 // PodNetworksController handles the cncf networks annotations update, and
@@ -55,6 +58,7 @@ type PodNetworksController struct {
 	workqueue               workqueue.RateLimitingInterface
 	multusSocketPath        string
 	nadClientSet            nadclient.Interface
+	containerRuntime        cri.ContainerRuntime
 }
 
 // NewPodNetworksController returns new PodNetworksController instance
@@ -66,6 +70,7 @@ func NewPodNetworksController(
 	multusSocketPath string,
 	k8sClientSet kubernetes.Interface,
 	nadClientSet nadclient.Interface,
+	containerRuntime cri.ContainerRuntime,
 ) (*PodNetworksController, error) {
 	podInformer := k8sCoreInformerFactory.Core().V1().Pods().Informer()
 	nadInformer := nadInformers.K8sCniCncfIo().V1().NetworkAttachmentDefinitions().Informer()
@@ -83,8 +88,9 @@ func NewPodNetworksController(
 		workqueue: workqueue.NewNamedRateLimitingQueue(
 			workqueue.DefaultControllerRateLimiter(),
 			AdvertisedName),
-		k8sClientSet: k8sClientSet,
-		nadClientSet: nadClientSet,
+		k8sClientSet:     k8sClientSet,
+		nadClientSet:     nadClientSet,
+		containerRuntime: containerRuntime,
 	}
 
 	podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -195,6 +201,12 @@ func (pnc *PodNetworksController) handlePodUpdate(oldObj interface{}, newObj int
 
 	toAdd := exclusiveNetworks(newNetworkSelectionElements, oldNetworkSelectionElements)
 	klog.Infof("%d attachments to add to pod %s", len(toAdd), namespacedName(podNamespace, podName))
+
+	netnsPath, err := pnc.netnsPath(newPod)
+	if err != nil {
+		klog.Errorf("failed to figure out the pod's network namespace: %v", err)
+		return
+	}
 	if len(toAdd) > 0 {
 		pnc.workqueue.Add(
 			&DynamicAttachmentRequest{
@@ -202,6 +214,7 @@ func (pnc *PodNetworksController) handlePodUpdate(oldObj interface{}, newObj int
 				PodNamespace:    podNamespace,
 				AttachmentNames: toAdd,
 				Type:            add,
+				PodNetNS:        netnsPath,
 			})
 	}
 
@@ -214,6 +227,7 @@ func (pnc *PodNetworksController) handlePodUpdate(oldObj interface{}, newObj int
 				PodNamespace:    podNamespace,
 				AttachmentNames: toRemove,
 				Type:            remove,
+				PodNetNS:        netnsPath,
 			})
 	}
 }
@@ -309,4 +323,25 @@ func (pnc *PodNetworksController) Eventf(object runtime.Object, eventtype, reaso
 	if pnc != nil && pnc.recorder != nil {
 		pnc.recorder.Eventf(object, eventtype, reason, messageFmt, args...)
 	}
+}
+
+func (pnc *PodNetworksController) netnsPath(pod *corev1.Pod) (string, error) {
+	if containerID := podContainerID(pod); containerID != "" {
+		netns, err := pnc.containerRuntime.NetNS(containerID)
+		if err != nil {
+			return "", fmt.Errorf("failed to get netns for container [%s]: %w", containerID, err)
+		}
+		return netns, nil
+	}
+	return "", nil
+}
+
+func podContainerID(pod *corev1.Pod) string {
+	cidURI := pod.Status.ContainerStatuses[0].ContainerID
+	// format is docker://<cid>
+	parts := strings.Split(cidURI, "//")
+	if len(parts) > 1 {
+		return parts[1]
+	}
+	return cidURI
 }
