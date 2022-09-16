@@ -43,6 +43,15 @@ type DynamicAttachmentRequest struct {
 	PodNetNS        string
 }
 
+func (dar *DynamicAttachmentRequest) String() string {
+	req, err := json.Marshal(dar)
+	if err != nil {
+		klog.Warningf("failed to marshal DynamicAttachmentRequest: %v", err)
+		return ""
+	}
+	return string(req)
+}
+
 // PodNetworksController handles the cncf networks annotations update, and
 // triggers adding / removing networks from a running pod.
 type PodNetworksController struct {
