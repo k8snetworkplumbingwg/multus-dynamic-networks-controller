@@ -1,7 +1,7 @@
 GO ?= go
 OCI_BIN ?= docker
 
-IMAGE_REGISTRY ?= quay.io/maiqueb
+IMAGE_REGISTRY ?= quay.io/mduarted
 IMAGE_NAME ?= multus-dynamic-networks-controller
 IMAGE_TAG ?= latest
 
