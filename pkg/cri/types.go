@@ -9,3 +9,9 @@ const (
 	// Containerd represents the containerd container runtime
 	Containerd RuntimeType = "containerd"
 )
+
+// ContainerRuntime interface
+type ContainerRuntime interface {
+	// NetNS returns the network namespace of the given containerID.
+	NetNS(containerID string) (string, error)
+}
