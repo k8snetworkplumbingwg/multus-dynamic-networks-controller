@@ -110,9 +110,9 @@ func listenOnCoLocatedNode() v1coreinformerfactory.SharedInformerOption {
 		func(options *v1.ListOptions) {
 			const (
 				filterKey           = "spec.nodeName"
-				hostnameEnvVariable = "HOSTNAME"
+				nodeNameEnvVariable = "NODE_NAME"
 			)
-			options.FieldSelector = fields.OneTermEqualSelector(filterKey, os.Getenv(hostnameEnvVariable)).String()
+			options.FieldSelector = fields.OneTermEqualSelector(filterKey, os.Getenv(nodeNameEnvVariable)).String()
 		})
 }
 
