@@ -95,6 +95,11 @@ spec:
       serviceAccountName: dynamic-networks-controller
       containers:
         - name: dynamic-networks-controller
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                    fieldPath: spec.nodeName
           image: {{ IMAGE_REGISTRY }}/multus-dynamic-networks-controller:latest
           command: [ "/dynamic-networks-controller" ]
           args:
