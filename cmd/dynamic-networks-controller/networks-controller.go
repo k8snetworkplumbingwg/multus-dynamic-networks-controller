@@ -89,7 +89,7 @@ func newController(stopChannel chan struct{}, configuration *config.Multus) (*co
 		nadInformerFactory,
 		eventBroadcaster,
 		newEventRecorder(eventBroadcaster),
-		configuration.CriSocketPath,
+		configuration.MultusSocketPath,
 		k8sClient,
 		nadClientSet,
 	)
