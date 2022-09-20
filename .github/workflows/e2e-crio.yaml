@@ -1,0 +1,48 @@
+name: e2e tests - crio
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.x
+
+      - run: |
+          pip3 install --user --upgrade j2cli
+          j2 --version
+      - uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.18
+
+      - name: Start minikube
+        uses: medyagh/setup-minikube@master
+        with:
+          minikube-version: 1.26.1
+          container-runtime: cri-o
+          kubernetes-version: v1.24.3
+          cni: bridge
+
+      - name: Deploy multus & the PRs contents
+        run: hack/e2e-crio-cluster-setup.sh
+
+      - name: Test - provisioning the examples
+        run: e2e/test-provisioning-examples.sh
+
+      - name: Test - execute golang based e2e tests
+        env:
+          KUBECONFIG: /home/runner/.kube/config
+        run: make e2e/test
+
+      - name: Cleanup cluster
+        run: |
+          minikube delete
