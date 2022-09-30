@@ -141,7 +141,12 @@ var _ = Describe("Dynamic Attachment controller", func() {
 				})
 
 				It("an `AddedInterface` event is seen in the event recorded ", func() {
-					expectedEventPayload := fmt.Sprintf("Normal AddedInterface add network: %s", networkToAdd)
+					expectedEventPayload := fmt.Sprintf(
+						"Normal AddedInterface pod [%s]: added interface %s to network: %s",
+						namespacedName(namespace, podName),
+						"net1",
+						networkToAdd,
+					)
 					Eventually(<-eventRecorder.Events).Should(Equal(expectedEventPayload))
 				})
 			})
@@ -157,7 +162,12 @@ var _ = Describe("Dynamic Attachment controller", func() {
 				})
 
 				It("an `RemovedInterface` event is seen in the event recorded ", func() {
-					expectedEventPayload := fmt.Sprintf("Normal RemovedInterface removed network: %s", networkName)
+					expectedEventPayload := fmt.Sprintf(
+						"Normal RemovedInterface pod [%s]: removed interface %s from network: %s",
+						namespacedName(namespace, podName),
+						"net0",
+						networkName,
+					)
 					Eventually(<-eventRecorder.Events).Should(Equal(expectedEventPayload))
 				})
 			})

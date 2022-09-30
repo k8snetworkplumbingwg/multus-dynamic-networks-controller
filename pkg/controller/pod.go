@@ -22,6 +22,7 @@ import (
 	nadclient "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned"
 	nadinformers "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/informers/externalversions"
 	nadlisterv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/listers/k8s.cni.cncf.io/v1"
+	multusapi "gopkg.in/k8snetworkplumbingwg/multus-cni.v3/pkg/server/api"
 
 	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/annotations"
 	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/cri"
@@ -151,13 +152,13 @@ func (pnc *PodNetworksController) handleDynamicInterfaceRequest(dynamicAttachmen
 		if err != nil {
 			return err
 		}
-		return pnc.addNetworks(dynamicAttachmentRequest.AttachmentNames, pod)
+		return pnc.addNetworks(dynamicAttachmentRequest, pod)
 	} else if dynamicAttachmentRequest.Type == "remove" {
 		pod, err := pnc.podsLister.Pods(dynamicAttachmentRequest.PodNamespace).Get(dynamicAttachmentRequest.PodName)
 		if err != nil {
 			return err
 		}
-		return pnc.removeNetworks(dynamicAttachmentRequest.AttachmentNames, pod)
+		return pnc.removeNetworks(dynamicAttachmentRequest, pod)
 	} else {
 		klog.Infof("very weird attachment request: %+v", dynamicAttachmentRequest)
 	}
@@ -246,19 +247,67 @@ func namespacedName(podNamespace string, podName string) string {
 	return fmt.Sprintf("%s/%s", podNamespace, podName)
 }
 
-func (pnc *PodNetworksController) addNetworks(netsToAdd []*nadv1.NetworkSelectionElement, pod *corev1.Pod) error {
-	for i := range netsToAdd {
-		klog.Infof("network to add: %v", netsToAdd[i])
-		pnc.Eventf(pod, corev1.EventTypeNormal, "AddedInterface", "add network: %s", netsToAdd[i].Name)
+func (pnc *PodNetworksController) addNetworks(dynamicAttachmentRequest *DynamicAttachmentRequest, pod *corev1.Pod) error {
+	for i := range dynamicAttachmentRequest.AttachmentNames {
+		netToAdd := dynamicAttachmentRequest.AttachmentNames[i]
+		klog.Infof("network to add: %v", netToAdd)
+
+		netAttachDef, err := pnc.netAttachDefLister.NetworkAttachmentDefinitions(netToAdd.Namespace).Get(netToAdd.Name)
+		if err != nil {
+			klog.Errorf("failed to access the networkattachmentdefinition %s/%s: %v", netToAdd.Namespace, netToAdd.Name, err)
+			return err
+		}
+		response, err := pnc.multusClient.InvokeDelegate(
+			multusapi.CreateDelegateRequest(
+				multuscni.CmdAdd,
+				podContainerID(pod),
+				dynamicAttachmentRequest.PodNetNS,
+				netToAdd.InterfaceRequest,
+				pod.GetNamespace(),
+				pod.GetName(),
+				string(pod.UID),
+				[]byte(netAttachDef.Spec.Config),
+			))
+
+		if err != nil {
+			return fmt.Errorf("failed to ADD delegate: %v", err)
+		}
+		klog.Infof("response: %v", *response.Result)
+
+		pnc.Eventf(pod, corev1.EventTypeNormal, "AddedInterface", addIfaceEventFormat(pod, netToAdd))
 	}
 
 	return nil
 }
 
-func (pnc *PodNetworksController) removeNetworks(netsToRemove []*nadv1.NetworkSelectionElement, pod *corev1.Pod) error {
-	for i := range netsToRemove {
-		klog.Infof("network to remove: %v", netsToRemove[i])
-		pnc.Eventf(pod, corev1.EventTypeNormal, "RemovedInterface", "removed network: %s", netsToRemove[i].Name)
+func (pnc *PodNetworksController) removeNetworks(dynamicAttachmentRequest *DynamicAttachmentRequest, pod *corev1.Pod) error {
+	for i := range dynamicAttachmentRequest.AttachmentNames {
+		netToRemove := dynamicAttachmentRequest.AttachmentNames[i]
+		klog.Infof("network to remove: %v", dynamicAttachmentRequest.AttachmentNames[i])
+
+		netAttachDef, err := pnc.netAttachDefLister.NetworkAttachmentDefinitions(netToRemove.Namespace).Get(netToRemove.Name)
+		if err != nil {
+			klog.Errorf("failed to access the network-attachment-definition %s/%s: %v", netToRemove.Namespace, netToRemove.Name, err)
+			return err
+		}
+
+		response, err := pnc.multusClient.InvokeDelegate(
+			multusapi.CreateDelegateRequest(
+				multuscni.CmdDel,
+				podContainerID(pod),
+				dynamicAttachmentRequest.PodNetNS,
+				netToRemove.InterfaceRequest,
+				pod.GetNamespace(),
+				pod.GetName(),
+				string(pod.UID),
+				[]byte(netAttachDef.Spec.Config),
+			))
+		if err != nil {
+			return fmt.Errorf("failed to remove delegate: %v", err)
+		}
+		klog.Infof("response: %v", *response)
+
+		pnc.Eventf(pod, corev1.EventTypeNormal, "RemovedInterface", removeIfaceEventFormat(pod, netToRemove))
 	}
 
 	return nil
@@ -354,4 +403,22 @@ func podContainerID(pod *corev1.Pod) string {
 		return parts[1]
 	}
 	return cidURI
+}
+
+func addIfaceEventFormat(pod *corev1.Pod, network *nadv1.NetworkSelectionElement) string {
+	return fmt.Sprintf(
+		"pod [%s]: added interface %s to network: %s",
+		namespacedName(pod.GetNamespace(), pod.GetName()),
+		network.InterfaceRequest,
+		network.Name,
+	)
+}
+
+func removeIfaceEventFormat(pod *corev1.Pod, network *nadv1.NetworkSelectionElement) string {
+	return fmt.Sprintf(
+		"pod [%s]: removed interface %s from network: %s",
+		namespacedName(pod.GetNamespace(), pod.GetName()),
+		network.InterfaceRequest,
+		network.Name,
+	)
 }
