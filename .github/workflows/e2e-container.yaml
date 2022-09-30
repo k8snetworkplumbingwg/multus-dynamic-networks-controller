@@ -31,6 +31,11 @@ jobs:
       - name: Test - provisioning the examples
         run: e2e/test-provisioning-examples.sh
 
+      - name: Test - execute golang based e2e tests
+        env:
+          KUBECONFIG: /home/runner/.kube/config
+        run: make e2e/test
+
       - name: Cleanup cluster
         run: |
           kind delete cluster           # gracefully remove the cluster
