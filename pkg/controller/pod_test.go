@@ -29,6 +29,7 @@ import (
 	nadinformers "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/informers/externalversions"
 	multusapi "gopkg.in/k8snetworkplumbingwg/multus-cni.v3/pkg/server/api"
 
+	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/annotations"
 	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/cri"
 	fakecri "github.com/maiqueb/multus-dynamic-networks-controller/pkg/cri/fake"
 	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/multuscni"
@@ -121,8 +122,8 @@ var _ = Describe("Dynamic Attachment controller", func() {
 					return status
 				}()).Should(
 					And(
-						WithTransform(networkStatusNames, ContainElements(namespacedName(namespace, networkName))),
-						Not(WithTransform(networkStatusNames, ContainElements(namespacedName(namespace, networkToAdd))))),
+						WithTransform(networkStatusNames, ContainElements(annotations.NamespacedName(namespace, networkName))),
+						Not(WithTransform(networkStatusNames, ContainElements(annotations.NamespacedName(namespace, networkToAdd))))),
 				)
 			})
 
@@ -143,7 +144,7 @@ var _ = Describe("Dynamic Attachment controller", func() {
 				It("an `AddedInterface` event is seen in the event recorded ", func() {
 					expectedEventPayload := fmt.Sprintf(
 						"Normal AddedInterface pod [%s]: added interface %s to network: %s",
-						namespacedName(namespace, podName),
+						annotations.NamespacedName(namespace, podName),
 						"net1",
 						networkToAdd,
 					)
@@ -164,7 +165,7 @@ var _ = Describe("Dynamic Attachment controller", func() {
 				It("an `RemovedInterface` event is seen in the event recorded ", func() {
 					expectedEventPayload := fmt.Sprintf(
 						"Normal RemovedInterface pod [%s]: removed interface %s from network: %s",
-						namespacedName(namespace, podName),
+						annotations.NamespacedName(namespace, podName),
 						"net0",
 						networkName,
 					)
