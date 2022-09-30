@@ -12,6 +12,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	cni100 "github.com/containernetworking/cni/pkg/types/100"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -25,9 +27,12 @@ import (
 	nadclient "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned"
 	fakenadclient "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned/fake"
 	nadinformers "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/informers/externalversions"
+	multusapi "gopkg.in/k8snetworkplumbingwg/multus-cni.v3/pkg/server/api"
 
 	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/cri"
 	fakecri "github.com/maiqueb/multus-dynamic-networks-controller/pkg/cri/fake"
+	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/multuscni"
+	fakemultusclient "github.com/maiqueb/multus-dynamic-networks-controller/pkg/multuscni/fake"
 )
 
 func TestController(t *testing.T) {
@@ -61,6 +66,7 @@ var _ = Describe("Dynamic Attachment controller", func() {
 		Context("with an existing running pod", func() {
 			const (
 				cniVersion  = "0.3.0"
+				macAddr     = "02:03:04:05:06:07"
 				namespace   = "default"
 				networkName = "tiny-net"
 				podName     = "tiny-winy-pod"
@@ -98,8 +104,10 @@ var _ = Describe("Dynamic Attachment controller", func() {
 						nadClient,
 						stopChannel,
 						eventRecorder,
-						"",
 						fakecri.NewFakeRuntime(*pod),
+						fakemultusclient.NewFakeClient(
+							networkConfig(multuscni.CmdAdd, "net1", networkName, macAddr),
+							networkConfig(multuscni.CmdDel, "net0", "", "")),
 					)).NotTo(BeNil())
 				Expect(func() []nad.NetworkStatus {
 					updatedPod, err := k8sClient.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
@@ -157,6 +165,21 @@ var _ = Describe("Dynamic Attachment controller", func() {
 	})
 })
 
+func networkConfig(cmd, ifaceName, networkName, mac string) fakemultusclient.NetworkConfig {
+	const cniVersion = "1.0.0"
+	return fakemultusclient.NetworkConfig{
+		Cmd:       cmd,
+		IfaceName: ifaceName,
+		Response: &multusapi.Response{
+			Result: &cni100.Result{
+				CNIVersion: cniVersion,
+				Interfaces: []*cni100.Interface{
+					{Name: networkName, Mac: mac},
+				},
+			}},
+	}
+}
+
 type dummyPodController struct {
 	*PodNetworksController
 	networkCache cache.Store
@@ -168,8 +191,8 @@ func newDummyPodController(
 	nadClient nadclient.Interface,
 	stopChannel chan struct{},
 	recorder record.EventRecorder,
-	cniConfigPath string,
-	containerRuntime cri.ContainerRuntime) (*dummyPodController, error) {
+	containerRuntime cri.ContainerRuntime,
+	multusClient multuscni.Client) (*dummyPodController, error) {
 	const noResyncPeriod = 0
 	netAttachDefInformerFactory := nadinformers.NewSharedInformerFactory(nadClient, noResyncPeriod)
 	podInformerFactory := v1coreinformerfactory.NewSharedInformerFactory(k8sClient, noResyncPeriod)
@@ -179,10 +202,10 @@ func newDummyPodController(
 		netAttachDefInformerFactory,
 		nil,
 		recorder,
-		cniConfigPath,
 		k8sClient,
 		nadClient,
-		containerRuntime)
+		containerRuntime,
+		multusClient)
 
 	alwaysReady := func() bool { return true }
 	podController.arePodsSynched = alwaysReady

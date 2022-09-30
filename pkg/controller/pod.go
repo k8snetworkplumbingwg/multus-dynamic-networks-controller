@@ -26,6 +26,7 @@ import (
 	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/annotations"
 	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/cri"
 	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/logging"
+	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/multuscni"
 )
 
 const (
@@ -65,9 +66,9 @@ type PodNetworksController struct {
 	broadcaster             record.EventBroadcaster
 	recorder                record.EventRecorder
 	workqueue               workqueue.RateLimitingInterface
-	multusSocketPath        string
 	nadClientSet            nadclient.Interface
 	containerRuntime        cri.ContainerRuntime
+	multusClient            multuscni.Client
 }
 
 // NewPodNetworksController returns new PodNetworksController instance
@@ -76,10 +77,10 @@ func NewPodNetworksController(
 	nadInformers nadinformers.SharedInformerFactory,
 	broadcaster record.EventBroadcaster,
 	recorder record.EventRecorder,
-	multusSocketPath string,
 	k8sClientSet kubernetes.Interface,
 	nadClientSet nadclient.Interface,
 	containerRuntime cri.ContainerRuntime,
+	multusClient multuscni.Client,
 ) (*PodNetworksController, error) {
 	podInformer := k8sCoreInformerFactory.Core().V1().Pods().Informer()
 	nadInformer := nadInformers.K8sCniCncfIo().V1().NetworkAttachmentDefinitions().Informer()
@@ -93,13 +94,13 @@ func NewPodNetworksController(
 		netAttachDefLister:      nadInformers.K8sCniCncfIo().V1().NetworkAttachmentDefinitions().Lister(),
 		recorder:                recorder,
 		broadcaster:             broadcaster,
-		multusSocketPath:        multusSocketPath,
 		workqueue: workqueue.NewNamedRateLimitingQueue(
 			workqueue.DefaultControllerRateLimiter(),
 			AdvertisedName),
 		k8sClientSet:     k8sClientSet,
 		nadClientSet:     nadClientSet,
 		containerRuntime: containerRuntime,
+		multusClient:     multusClient,
 	}
 
 	podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{

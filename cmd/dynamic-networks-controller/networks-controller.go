@@ -25,6 +25,7 @@ import (
 	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/cri"
 	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/cri/containerd"
 	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/logging"
+	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/multuscni"
 )
 
 const (
@@ -96,11 +97,10 @@ func newController(stopChannel chan struct{}, configuration *config.Multus) (*co
 		nadInformerFactory,
 		eventBroadcaster,
 		newEventRecorder(eventBroadcaster),
-		configuration.MultusSocketPath,
 		k8sClient,
 		nadClientSet,
 		containerRuntime,
-	)
+		multuscni.NewClient(configuration.MultusSocketPath))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create the pod networks controller: %v", err)
 	}
