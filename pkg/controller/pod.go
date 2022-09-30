@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	v1coreinformerfactory "k8s.io/client-go/informers"
@@ -174,7 +176,7 @@ func (pnc *PodNetworksController) handleResult(err error, dynamicAttachmentReque
 
 	currentRetries := pnc.workqueue.NumRequeues(dynamicAttachmentRequest)
 	if currentRetries <= maxRetries {
-		klog.Errorf("re-queued request for: %v", dynamicAttachmentRequest)
+		klog.Errorf("re-queued request for: %v. Error: %v", dynamicAttachmentRequest, err)
 		pnc.workqueue.AddRateLimited(dynamicAttachmentRequest)
 		return
 	}
@@ -196,7 +198,7 @@ func (pnc *PodNetworksController) handlePodUpdate(oldObj interface{}, newObj int
 	}
 	podNamespace := oldPod.GetNamespace()
 	podName := oldPod.GetName()
-	klog.V(logging.Debug).Infof("pod [%s] updated", namespacedName(podNamespace, podName))
+	klog.V(logging.Debug).Infof("pod [%s] updated", annotations.NamespacedName(podNamespace, podName))
 
 	oldNetworkSelectionElements, err := networkSelectionElements(oldPod.Annotations, podNamespace)
 	if err != nil {
@@ -211,7 +213,7 @@ func (pnc *PodNetworksController) handlePodUpdate(oldObj interface{}, newObj int
 	}
 
 	toAdd := exclusiveNetworks(newNetworkSelectionElements, oldNetworkSelectionElements)
-	klog.Infof("%d attachments to add to pod %s", len(toAdd), namespacedName(podNamespace, podName))
+	klog.Infof("%d attachments to add to pod %s", len(toAdd), annotations.NamespacedName(podNamespace, podName))
 
 	netnsPath, err := pnc.netnsPath(newPod)
 	if err != nil {
@@ -230,7 +232,7 @@ func (pnc *PodNetworksController) handlePodUpdate(oldObj interface{}, newObj int
 	}
 
 	toRemove := exclusiveNetworks(oldNetworkSelectionElements, newNetworkSelectionElements)
-	klog.Infof("%d attachments to remove from pod %s", len(toRemove), namespacedName(podNamespace, podName))
+	klog.Infof("%d attachments to remove from pod %s", len(toRemove), annotations.NamespacedName(podNamespace, podName))
 	if len(toRemove) > 0 {
 		pnc.workqueue.Add(
 			&DynamicAttachmentRequest{
@@ -241,10 +243,6 @@ func (pnc *PodNetworksController) handlePodUpdate(oldObj interface{}, newObj int
 				PodNetNS:        netnsPath,
 			})
 	}
-}
-
-func namespacedName(podNamespace string, podName string) string {
-	return fmt.Sprintf("%s/%s", podNamespace, podName)
 }
 
 func (pnc *PodNetworksController) addNetworks(dynamicAttachmentRequest *DynamicAttachmentRequest, pod *corev1.Pod) error {
@@ -273,6 +271,15 @@ func (pnc *PodNetworksController) addNetworks(dynamicAttachmentRequest *DynamicA
 			return fmt.Errorf("failed to ADD delegate: %v", err)
 		}
 		klog.Infof("response: %v", *response.Result)
+
+		newIfaceStatus, err := annotations.AddDynamicIfaceToStatus(pod, netToAdd, response)
+		if err != nil {
+			return fmt.Errorf("failed to compute the updated network status: %v", err)
+		}
+
+		if err := pnc.updatePodNetworkStatus(pod, newIfaceStatus); err != nil {
+			return err
+		}
 
 		pnc.Eventf(pod, corev1.EventTypeNormal, "AddedInterface", addIfaceEventFormat(pod, netToAdd))
 	}
@@ -307,9 +314,31 @@ func (pnc *PodNetworksController) removeNetworks(dynamicAttachmentRequest *Dynam
 		}
 		klog.Infof("response: %v", *response)
 
+		newIfaceStatus, err := annotations.DeleteDynamicIfaceFromStatus(pod, netToRemove)
+		if err != nil {
+			return fmt.Errorf(
+				"failed to compute the dynamic network attachments after deleting network: %s, iface: %s: %v",
+				netToRemove.Name,
+				netToRemove.InterfaceRequest,
+				err,
+			)
+		}
+		if err := pnc.updatePodNetworkStatus(pod, newIfaceStatus); err != nil {
+			return err
+		}
+
 		pnc.Eventf(pod, corev1.EventTypeNormal, "RemovedInterface", removeIfaceEventFormat(pod, netToRemove))
 	}
 
+	return nil
+}
+
+func (pnc *PodNetworksController) updatePodNetworkStatus(pod *corev1.Pod, newIfaceStatus string) error {
+	pod.Annotations[nadv1.NetworkStatusAnnot] = newIfaceStatus
+
+	if _, err := pnc.k8sClientSet.CoreV1().Pods(pod.GetNamespace()).Update(context.Background(), pod, metav1.UpdateOptions{}); err != nil {
+		return fmt.Errorf("failed to update pod's network-status annotations for %s: %v", pod.GetName(), err)
+	}
 	return nil
 }
 
@@ -408,7 +437,7 @@ func podContainerID(pod *corev1.Pod) string {
 func addIfaceEventFormat(pod *corev1.Pod, network *nadv1.NetworkSelectionElement) string {
 	return fmt.Sprintf(
 		"pod [%s]: added interface %s to network: %s",
-		namespacedName(pod.GetNamespace(), pod.GetName()),
+		annotations.NamespacedName(pod.GetNamespace(), pod.GetName()),
 		network.InterfaceRequest,
 		network.Name,
 	)
@@ -417,7 +446,7 @@ func addIfaceEventFormat(pod *corev1.Pod, network *nadv1.NetworkSelectionElement
 func removeIfaceEventFormat(pod *corev1.Pod, network *nadv1.NetworkSelectionElement) string {
 	return fmt.Sprintf(
 		"pod [%s]: removed interface %s from network: %s",
-		namespacedName(pod.GetNamespace(), pod.GetName()),
+		annotations.NamespacedName(pod.GetNamespace(), pod.GetName()),
 		network.InterfaceRequest,
 		network.Name,
 	)
