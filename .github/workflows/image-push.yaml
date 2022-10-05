@@ -2,7 +2,7 @@ name: Push container image
 on: 
   push:
     branches:
-      - master
+      - main
 env:
   image-push-owner: 'maiqueb'
 jobs:
