@@ -100,7 +100,7 @@ spec:
               valueFrom:
                 fieldRef:
                     fieldPath: spec.nodeName
-          image: {{ IMAGE_REGISTRY }}/multus-dynamic-networks-controller:latest
+          image: {{ IMAGE_REGISTRY }}/multus-dynamic-networks-controller:{{ IMAGE_TAG }}
           command: [ "/dynamic-networks-controller" ]
           args:
             - "-config=/etc/dynamic-networks-controller/dynamic-networks-config.json"

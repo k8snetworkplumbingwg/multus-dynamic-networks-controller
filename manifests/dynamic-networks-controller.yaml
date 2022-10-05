@@ -100,7 +100,7 @@ spec:
               valueFrom:
                 fieldRef:
                     fieldPath: spec.nodeName
-          image: quay.io/mduarted/multus-dynamic-networks-controller:latest
+          image: ghcr.io/maiqueb/multus-dynamic-networks-controller:latest-amd64
           command: [ "/dynamic-networks-controller" ]
           args:
             - "-config=/etc/dynamic-networks-controller/dynamic-networks-config.json"

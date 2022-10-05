@@ -4,6 +4,7 @@ set -xe
 CNI_VERSION=${CNI_VERSION:-0.4.0}
 OCI_BIN=${OCI_BIN:-docker}
 IMG_REGISTRY=${IMAGE_REGISTRY:-localhost:5000/maiqueb}
+IMG_TAG="latest"
 
 setup_cluster() {
     git clone https://github.com/k8snetworkplumbingwg/multus-cni/
@@ -15,9 +16,9 @@ setup_cluster() {
 }
 
 push_local_image() {
-    OCI_BIN="$OCI_BIN" IMAGE_REGISTRY="$IMG_REGISTRY" make manifests
-    OCI_BIN="$OCI_BIN" IMAGE_REGISTRY="$IMG_REGISTRY" make img-build
-    "$OCI_BIN" push "$IMG_REGISTRY/multus-dynamic-networks-controller:latest"
+    OCI_BIN="$OCI_BIN" IMAGE_REGISTRY="$IMG_REGISTRY" IMAGE_TAG="$IMG_TAG" make manifests
+    OCI_BIN="$OCI_BIN" IMAGE_REGISTRY="$IMG_REGISTRY" IMAGE_TAG="$IMG_TAG" make img-build
+    "$OCI_BIN" push "$IMG_REGISTRY/multus-dynamic-networks-controller:$IMG_TAG"
 }
 
 cleanup() {
