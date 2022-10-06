@@ -1478,6 +1478,7 @@ k8s.io/code-generator v0.24.4/go.mod h1:dpVhs00hTuTdTY6jvVxvTFCk6gSMrtfRydbhZwHI
 k8s.io/component-base v0.24.4/go.mod h1:sWxkgcMfbYHadw0OJ0N+vIscd14/nqSIM2veCdg843o=
 k8s.io/component-helpers v0.24.4/go.mod h1:xAHlOKU8rAjLgXWJEsueWLR1LDMThbaPf2YvgKpSyQ8=
 k8s.io/controller-manager v0.24.4/go.mod h1:1Tkmq5m8POXAv0JQr2BDSp95psbaXP2iYLvNftpn1Ds=
+k8s.io/cri-api v0.24.4 h1:wBj7/kRuY38TPham9HIWlX0t42LiWX8COnYeWVZEeHg=
 k8s.io/cri-api v0.24.4/go.mod h1:t3tImFtGeStN+ES69bQUX9sFg67ek38BM9YIJhMmuig=
 k8s.io/csi-translation-lib v0.24.4/go.mod h1:Ov9lVXDEI3AGXYVO5TTK+o7nRa2GdlsLVvpo86Xy6x4=
 k8s.io/gengo v0.0.0-20200413195148-3a45101e95ac/go.mod h1:ezvh/TsK7cY6rbqRK0oQQ8IAqLxYwwyPxAX1Pzy0ii0=
