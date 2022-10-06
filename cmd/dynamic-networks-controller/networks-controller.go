@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,6 +25,7 @@ import (
 	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/controller"
 	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/cri"
 	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/cri/containerd"
+	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/cri/crio"
 	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/logging"
 	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/multuscni"
 )
@@ -89,7 +91,7 @@ func newController(stopChannel chan struct{}, configuration *config.Multus) (*co
 
 	containerRuntime, err := newContainerRuntime(configuration)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create the CRI: %v", err)
+		return nil, fmt.Errorf("failed to create CRI type %s: %v", configuration.CriType, err)
 	}
 
 	podNetworksController, err := controller.NewPodNetworksController(
@@ -145,6 +147,9 @@ func handleSignals(stopChannel chan struct{}, signals ...os.Signal) {
 }
 
 func newContainerRuntime(configuration *config.Multus) (cri.ContainerRuntime, error) {
-	const withoutTimeout = 0
-	return containerd.NewContainerdRuntime(configuration.CriSocketPath, withoutTimeout)
+	const shortTimeout = 5 * time.Second
+	if configuration.CriType == cri.Crio {
+		return crio.NewRuntime(configuration.CriSocketPath, shortTimeout)
+	}
+	return containerd.NewContainerdRuntime(configuration.CriSocketPath, shortTimeout)
 }

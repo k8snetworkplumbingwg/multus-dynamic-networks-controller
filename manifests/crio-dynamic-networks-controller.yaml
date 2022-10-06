@@ -61,7 +61,8 @@ metadata:
 data:
   dynamic-networks-config.json: |
     {
-        "criSocketPath": "/host/run/containerd/containerd.sock",
+        "criType": "crio",
+        "criSocketPath": "/host/run/crio/crio.sock",
         "multusSocketPath": "/host/run/multus/multus.sock"
     }
 ---
@@ -118,7 +119,7 @@ spec:
             - name: multus-server-socket
               mountPath: /host/run/multus/multus.sock
             - name: cri-socket
-              mountPath: /host/run/containerd/containerd.sock
+              mountPath: /host/run/crio/crio.sock
       terminationGracePeriodSeconds: 10
       volumes:
         - name: dynamic-networks-controller-config-dir
@@ -133,5 +134,5 @@ spec:
              type: Socket
         -  name: cri-socket
            hostPath:
-             path: /run/containerd/containerd.sock
+             path: /run/crio/crio.sock
              type: Socket
