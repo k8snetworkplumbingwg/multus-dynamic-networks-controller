@@ -4,6 +4,7 @@ OCI_BIN ?= docker
 IMAGE_REGISTRY ?= ghcr.io/maiqueb
 IMAGE_NAME ?= multus-dynamic-networks-controller
 IMAGE_TAG ?= latest-amd64
+NAMESPACE ?= kube-system
 
 CRI_SOCKET_PATH ?= "/host/run/containerd/containerd.sock"
 
@@ -21,7 +22,7 @@ img-build: build test
 	$(OCI_BIN) build -t ${IMAGE_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} -f images/Dockerfile .
 
 manifests:
-	IMAGE_REGISTRY=${IMAGE_REGISTRY} IMAGE_TAG=${IMAGE_TAG} CRI_SOCKET_PATH=${CRI_SOCKET_PATH} hack/generate_manifests.sh
+	IMAGE_REGISTRY=${IMAGE_REGISTRY} IMAGE_TAG=${IMAGE_TAG} CRI_SOCKET_PATH=${CRI_SOCKET_PATH} NAMESPACE=${NAMESPACE} hack/generate_manifests.sh
 
 test:
 	$(GO) test -v ./pkg/...
