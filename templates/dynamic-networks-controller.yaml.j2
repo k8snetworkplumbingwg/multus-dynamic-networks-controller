@@ -42,19 +42,19 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: dynamic-networks-controller
-    namespace: kube-system
+    namespace: {{ NAMESPACE }}
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: dynamic-networks-controller
-  namespace: kube-system
+  namespace: {{ NAMESPACE }}
 ---
 kind: ConfigMap
 apiVersion: v1
 metadata:
   name: dynamic-networks-controller-config
-  namespace: kube-system
+  namespace: {{ NAMESPACE }}
   labels:
     tier: node
     app: multus-dynamic-networks-controller
@@ -69,7 +69,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: dynamic-networks-controller-ds
-  namespace: kube-system
+  namespace: {{ NAMESPACE }}
   labels:
     tier: node
     app: dynamic-networks-controller
