@@ -109,8 +109,6 @@ spec:
             requests:
               cpu: "100m"
               memory: "50Mi"
-          securityContext:
-            privileged: true
           volumeMounts:
             - name: dynamic-networks-controller-config-dir
               mountPath: /etc/dynamic-networks-controller/
