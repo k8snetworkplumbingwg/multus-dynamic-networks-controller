@@ -10,6 +10,9 @@ for file in `ls $templates_dir/`; do
 	if [ -z $CRIO_RUNTIME ]; then
 	  j2 -e IMAGE_REGISTRY -e IMAGE_TAG -e CRI_SOCKET_PATH -e NAMESPACE ${templates_dir}/$file -o "manifests/${file%.j2}"
 	else
+	  if [ $file != "dynamic-networks-controller.yaml.j2" ]; then
+	    continue
+	  fi
 	  j2 -e CRIO_RUNTIME -e IMAGE_REGISTRY -e IMAGE_TAG -e CRI_SOCKET_PATH -e NAMESPACE ${templates_dir}/$file -o "manifests/crio-${file%.j2}"
 	fi
 done
