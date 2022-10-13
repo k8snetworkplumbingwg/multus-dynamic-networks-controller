@@ -46,7 +46,7 @@ var _ = Describe("Multus dynamic networks controller", func() {
 		BeforeEach(func() {
 			_, err := clients.AddNamespace(namespace)
 			Expect(err).NotTo(HaveOccurred())
-			_, err = clients.AddNetAttachDef(macvlanNetworkWithWhereaboutsIPAMNetwork(networkName, namespace))
+			_, err = clients.AddNetAttachDef(macvlanNetworkWithoutIPAM(networkName, namespace))
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -133,7 +133,7 @@ func clusterConfig() (*rest.Config, error) {
 	return config, nil
 }
 
-func macvlanNetworkWithWhereaboutsIPAMNetwork(networkName string, namespaceName string) *nettypes.NetworkAttachmentDefinition {
+func macvlanNetworkWithoutIPAM(networkName string, namespaceName string) *nettypes.NetworkAttachmentDefinition {
 	macvlanConfig := `{
         "cniVersion": "0.3.0",
         "disableCheck": true,
