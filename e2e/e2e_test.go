@@ -96,7 +96,11 @@ var _ = Describe("Multus dynamic networks controller", func() {
 			It("manages to add a new interface to a running pod", func() {
 				const ifaceToAdd = "ens58"
 
-				Expect(clients.AddNetworkToPod(pod, networkName, namespace, ifaceToAdd)).To(Succeed())
+				Expect(clients.AddNetworkToPod(pod, &nettypes.NetworkSelectionElement{
+					Name:             networkName,
+					Namespace:        namespace,
+					InterfaceRequest: ifaceToAdd,
+				})).To(Succeed())
 				Eventually(filterPodNonDefaultNetworks).Should(
 					WithTransform(
 						status.CleanMACAddressesFromStatus(),

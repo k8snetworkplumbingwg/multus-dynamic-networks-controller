@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -109,9 +108,9 @@ func (c *E2EClient) DeletePod(pod *corev1.Pod) error {
 	return nil
 }
 
-func (c *E2EClient) AddNetworkToPod(pod *corev1.Pod, networkName string, namespace string, ifaceToAdd string) error {
-	pod.ObjectMeta.Annotations[nettypes.NetworkAttachmentAnnot] = dynamicNetworksAnnotation(pod, networkName, namespace, ifaceToAdd, nil)
-	_, err := c.k8sClient.CoreV1().Pods(namespace).Update(context.TODO(), pod, metav1.UpdateOptions{})
+func (c *E2EClient) AddNetworkToPod(pod *corev1.Pod, ifaceConfigsToAdd ...*nettypes.NetworkSelectionElement) error {
+	pod.ObjectMeta.Annotations[nettypes.NetworkAttachmentAnnot] = dynamicNetworksAnnotation(pod, ifaceConfigsToAdd...)
+	_, err := c.k8sClient.CoreV1().Pods(pod.GetNamespace()).Update(context.TODO(), pod, metav1.UpdateOptions{})
 	return err
 }
 
@@ -230,29 +229,20 @@ func podMeta(podName string, namespace string, label map[string]string, annotati
 	}
 }
 
-func dynamicNetworksAnnotation(pod *corev1.Pod, networkName string, netNamespace string, ifaceName string, ip *net.IP) string {
+func dynamicNetworksAnnotation(pod *corev1.Pod, newIfaceConfigs ...*nettypes.NetworkSelectionElement) string {
 	currentNetworkSelectionElementsString, wasFound := pod.ObjectMeta.Annotations[nettypes.NetworkAttachmentAnnot]
 	if !wasFound {
 		return ""
 	}
 
-	currentNetworkSelectionElements, err := annotations.ParsePodNetworkAnnotations(currentNetworkSelectionElementsString, netNamespace)
+	currentNetworkSelectionElements, err := annotations.ParsePodNetworkAnnotations(currentNetworkSelectionElementsString, pod.GetNamespace())
 	if err != nil {
 		return ""
 	}
 
-	var ips []string
-	if ip != nil {
-		ips = []string{ip.String()}
-	}
 	updatedNetworkSelectionElements := append(
 		currentNetworkSelectionElements,
-		&nettypes.NetworkSelectionElement{
-			Name:             networkName,
-			Namespace:        netNamespace,
-			InterfaceRequest: ifaceName,
-			IPRequest:        ips,
-		},
+		newIfaceConfigs...,
 	)
 	newSelectionElements, err := json.Marshal(updatedNetworkSelectionElements)
 	if err != nil {
