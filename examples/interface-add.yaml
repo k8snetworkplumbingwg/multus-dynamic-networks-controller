@@ -11,7 +11,14 @@ metadata:
             },
             {
                 "name": "macvlan1-config",
-                "interface": "ens4"
+                "interface": "ens4",
+                "ips": ["10.1.1.66/24"]
+            },
+            {
+                "name": "macvlan1-config",
+                "interface": "ens41",
+                "mac": "02:03:04:05:06:07",
+                "ips": ["10.1.1.111/24"]
             }
     ]'
   labels:
