@@ -110,7 +110,7 @@ func (c *E2EClient) DeletePod(pod *corev1.Pod) error {
 }
 
 func (c *E2EClient) AddNetworkToPod(pod *corev1.Pod, networkName string, namespace string, ifaceToAdd string) error {
-	pod.ObjectMeta.Annotations[nettypes.NetworkAttachmentAnnot] = dynamicNetworksAnnotation(pod, networkName, "ns1", ifaceToAdd, nil)
+	pod.ObjectMeta.Annotations[nettypes.NetworkAttachmentAnnot] = dynamicNetworksAnnotation(pod, networkName, namespace, ifaceToAdd, nil)
 	_, err := c.k8sClient.CoreV1().Pods(namespace).Update(context.TODO(), pod, metav1.UpdateOptions{})
 	return err
 }
