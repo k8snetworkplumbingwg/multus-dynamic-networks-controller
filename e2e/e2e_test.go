@@ -120,21 +120,18 @@ var _ = Describe("Multus dynamic networks controller", func() {
 			})
 
 			Context("a network with IPAM", func() {
-				const ipamNetworkToAdd = "tenant-network-ipam"
+				const (
+					ifaceToAddWithIPAM = "ens202"
+					ipAddressToAdd     = "10.10.10.111"
+					ipamNetworkToAdd   = "tenant-network-ipam"
+					netmaskLen         = 24
+				)
+
+				macAddress := "02:03:04:05:06:07"
 
 				BeforeEach(func() {
 					_, err := clients.AddNetAttachDef(macvlanNetworkWitStaticIPAM(ipamNetworkToAdd, namespace))
 					Expect(err).NotTo(HaveOccurred())
-				})
-
-				It("can be hotplugged into a running pod", func() {
-					const (
-						ifaceToAddWithIPAM = "ens202"
-						ipAddressToAdd     = "10.10.10.111"
-						netmaskLen         = 24
-					)
-
-					macAddress := "02:03:04:05:06:07"
 					Expect(clients.AddNetworkToPod(pod, &nettypes.NetworkSelectionElement{
 						Name:             ipamNetworkToAdd,
 						Namespace:        namespace,
@@ -142,6 +139,9 @@ var _ = Describe("Multus dynamic networks controller", func() {
 						InterfaceRequest: ifaceToAddWithIPAM,
 						MacRequest:       macAddress,
 					})).To(Succeed())
+				})
+
+				It("can be hotplugged into a running pod", func() {
 					Eventually(filterPodNonDefaultNetworks).Should(
 						ContainElements(
 							nettypes.NetworkStatus{
@@ -151,6 +151,24 @@ var _ = Describe("Multus dynamic networks controller", func() {
 								Mac:       macAddress,
 							},
 						))
+				})
+
+				It("can be hot unplugged from a running pod", func() {
+					const ifaceToRemove = ifaceToAddWithIPAM
+					pods, err := clients.ListPods(namespace, fmt.Sprintf("app=%s", podName))
+					Expect(err).NotTo(HaveOccurred())
+					pod = &pods.Items[0]
+
+					Expect(clients.RemoveNetworkFromPod(pod, networkName, namespace, ifaceToRemove)).To(Succeed())
+					Eventually(filterPodNonDefaultNetworks).Should(
+						Not(ContainElements(
+							nettypes.NetworkStatus{
+								Name:      namespacedName(namespace, ipamNetworkToAdd),
+								Interface: ifaceToAddWithIPAM,
+								IPs:       []string{ipAddressToAdd},
+								Mac:       macAddress,
+							},
+						)))
 				})
 			})
 		})
