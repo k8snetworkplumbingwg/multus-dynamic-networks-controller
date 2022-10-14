@@ -265,6 +265,7 @@ func (pnc *PodNetworksController) addNetworks(dynamicAttachmentRequest *DynamicA
 				pod.GetName(),
 				string(pod.UID),
 				[]byte(netAttachDef.Spec.Config),
+				interfaceAttributes(*netToAdd),
 			))
 
 		if err != nil {
@@ -308,6 +309,7 @@ func (pnc *PodNetworksController) removeNetworks(dynamicAttachmentRequest *Dynam
 				pod.GetName(),
 				string(pod.UID),
 				[]byte(netAttachDef.Spec.Config),
+				interfaceAttributes(*netToRemove),
 			))
 		if err != nil {
 			return fmt.Errorf("failed to remove delegate: %v", err)
@@ -450,4 +452,14 @@ func removeIfaceEventFormat(pod *corev1.Pod, network *nadv1.NetworkSelectionElem
 		network.InterfaceRequest,
 		network.Name,
 	)
+}
+
+func interfaceAttributes(networkData nadv1.NetworkSelectionElement) *multusapi.DelegateInterfaceAttributes {
+	if len(networkData.IPRequest) > 0 || networkData.MacRequest != "" {
+		return &multusapi.DelegateInterfaceAttributes{
+			IPRequest:  networkData.IPRequest,
+			MacRequest: networkData.MacRequest,
+		}
+	}
+	return nil
 }
