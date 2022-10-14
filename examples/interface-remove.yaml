@@ -4,7 +4,12 @@ kind: Pod
 metadata:
   name: macvlan1-worker1
   annotations:
-    k8s.v1.cni.cncf.io/networks: '[]'
+    k8s.v1.cni.cncf.io/networks: '[
+        {
+            "name": "macvlan1-config",
+            "ips": [ "10.1.1.11/24" ]
+        }
+    ]'
   labels:
     app: macvlan
 spec:
