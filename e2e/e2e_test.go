@@ -118,6 +118,41 @@ var _ = Describe("Multus dynamic networks controller", func() {
 				Expect(clients.RemoveNetworkFromPod(pod, networkName, namespace, ifaceToRemove)).To(Succeed())
 				Eventually(filterPodNonDefaultNetworks).Should(BeEmpty())
 			})
+
+			Context("a network with IPAM", func() {
+				const ipamNetworkToAdd = "tenant-network-ipam"
+
+				BeforeEach(func() {
+					_, err := clients.AddNetAttachDef(macvlanNetworkWitStaticIPAM(ipamNetworkToAdd, namespace))
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("can be hotplugged into a running pod", func() {
+					const (
+						ifaceToAddWithIPAM = "ens202"
+						ipAddressToAdd     = "10.10.10.111"
+						netmaskLen         = 24
+					)
+
+					macAddress := "02:03:04:05:06:07"
+					Expect(clients.AddNetworkToPod(pod, &nettypes.NetworkSelectionElement{
+						Name:             ipamNetworkToAdd,
+						Namespace:        namespace,
+						IPRequest:        []string{ipWithMask(ipAddressToAdd, netmaskLen)},
+						InterfaceRequest: ifaceToAddWithIPAM,
+						MacRequest:       macAddress,
+					})).To(Succeed())
+					Eventually(filterPodNonDefaultNetworks).Should(
+						ContainElements(
+							nettypes.NetworkStatus{
+								Name:      namespacedName(namespace, ipamNetworkToAdd),
+								Interface: ifaceToAddWithIPAM,
+								IPs:       []string{ipAddressToAdd},
+								Mac:       macAddress,
+							},
+						))
+				})
+			})
 		})
 	})
 })
@@ -148,6 +183,28 @@ func macvlanNetworkWithoutIPAM(networkName string, namespaceName string) *nettyp
                 "master": "eth0",
                 "mode": "bridge"
             }
+        ]
+    }`, networkName)
+	return generateNetAttachDefSpec(networkName, namespaceName, macvlanConfig)
+}
+
+func macvlanNetworkWitStaticIPAM(networkName string, namespaceName string) *nettypes.NetworkAttachmentDefinition {
+	macvlanConfig := fmt.Sprintf(`{
+        "cniVersion": "1.0.0",
+        "disableCheck": true,
+        "name": "%s",
+        "plugins": [
+			{
+				"type": "macvlan",
+				"capabilities": { "ips": true },
+				"master": "eth1",
+				"mode": "bridge",
+				"ipam": {
+					"type": "static"
+				}
+			}, {
+				"type": "tuning"
+			}
         ]
     }`, networkName)
 	return generateNetAttachDefSpec(networkName, namespaceName, macvlanConfig)
