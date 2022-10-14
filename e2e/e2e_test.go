@@ -138,10 +138,10 @@ func clusterConfig() (*rest.Config, error) {
 }
 
 func macvlanNetworkWithoutIPAM(networkName string, namespaceName string) *nettypes.NetworkAttachmentDefinition {
-	macvlanConfig := `{
+	macvlanConfig := fmt.Sprintf(`{
         "cniVersion": "0.3.0",
         "disableCheck": true,
-        "name": "tenant-network",
+        "name": "%s",
         "plugins": [
             {
                 "type": "macvlan",
@@ -149,7 +149,7 @@ func macvlanNetworkWithoutIPAM(networkName string, namespaceName string) *nettyp
                 "mode": "bridge"
             }
         ]
-    }`
+    }`, networkName)
 	return generateNetAttachDefSpec(networkName, namespaceName, macvlanConfig)
 }
 
@@ -207,4 +207,8 @@ func PodNetworkSelectionElements(networkConfig ...dynamicNetworkInfo) map[string
 
 func namespacedName(namespace, name string) string {
 	return fmt.Sprintf("%s/%s", namespace, name)
+}
+
+func ipWithMask(ip string, netmaskLen int) string {
+	return fmt.Sprintf("%s/%d", ip, netmaskLen)
 }
