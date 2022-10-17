@@ -117,4 +117,4 @@ replace (
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.24.4
 )
 
-replace gopkg.in/k8snetworkplumbingwg/multus-cni.v3 => github.com/k8snetworkplumbingwg/multus-cni v0.0.0-20220926142625-1aac2431b86a
+replace gopkg.in/k8snetworkplumbingwg/multus-cni.v3 => github.com/k8snetworkplumbingwg/multus-cni v0.0.0-20221014153412-fa8a6e688081

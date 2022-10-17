@@ -570,8 +570,8 @@ github.com/jtolds/gls v4.20.0+incompatible/go.mod h1:QJZ7F/aHp+rZTRtaJ1ow/lLfFfV
 github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7VTCxuUUipMqKk8s4w=
 github.com/julienschmidt/httprouter v1.3.0/go.mod h1:JR6WtHb+2LUe8TCKY3cZOxFyyO8IZAc4RVcycCCAKdM=
 github.com/jung-kurt/gofpdf v1.0.3-0.20190309125859-24315acbbda5/go.mod h1:7Id9E/uU8ce6rXgefFLlgrJj/GYY22cpxn+r32jIOes=
-github.com/k8snetworkplumbingwg/multus-cni v0.0.0-20220926142625-1aac2431b86a h1:VybuVhaxPDMFhuIEovqyIo6v0yqPRNZTJezbt3Zz7/I=
-github.com/k8snetworkplumbingwg/multus-cni v0.0.0-20220926142625-1aac2431b86a/go.mod h1:UuztUt9fVZCed9aexDAf//44CFiVQwrUnI8o4W4N8L8=
+github.com/k8snetworkplumbingwg/multus-cni v0.0.0-20221014153412-fa8a6e688081 h1:lonGN339dXcAMpSuluEvSN1GdCFgSFY5rNTlzKW8pUQ=
+github.com/k8snetworkplumbingwg/multus-cni v0.0.0-20221014153412-fa8a6e688081/go.mod h1:6Gc0CK1oJNOqUY3bGC6tppdnsNzwj0BZhNLrvEN1BWc=
 github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.3.0 h1:MjRRgZyTGo90G+UrwlDQjU+uG4Z7By65qvQxGoILT/8=
 github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.3.0/go.mod h1:nqCI7aelBJU61wiBeeZWJ6oi4bJy5nrjkM6lWIMA4j0=
 github.com/karrick/godirwalk v1.16.1/go.mod h1:j4mkqPuvaLI8mp1DroR3P6ad7cyYd4c1qeJ3RV7ULlk=

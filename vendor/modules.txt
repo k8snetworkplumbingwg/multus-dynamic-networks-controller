@@ -488,7 +488,7 @@ google.golang.org/protobuf/types/known/timestamppb
 # gopkg.in/inf.v0 v0.9.1
 ## explicit
 gopkg.in/inf.v0
-# gopkg.in/k8snetworkplumbingwg/multus-cni.v3 v3.9.1 => github.com/k8snetworkplumbingwg/multus-cni v0.0.0-20220926142625-1aac2431b86a
+# gopkg.in/k8snetworkplumbingwg/multus-cni.v3 v3.9.1 => github.com/k8snetworkplumbingwg/multus-cni v0.0.0-20221014153412-fa8a6e688081
 ## explicit; go 1.17
 gopkg.in/k8snetworkplumbingwg/multus-cni.v3/pkg/logging
 gopkg.in/k8snetworkplumbingwg/multus-cni.v3/pkg/server/api
@@ -938,4 +938,4 @@ sigs.k8s.io/yaml
 # k8s.io/mount-utils => k8s.io/mount-utils v0.24.4
 # k8s.io/pod-security-admission => k8s.io/pod-security-admission v0.24.4
 # k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.24.4
-# gopkg.in/k8snetworkplumbingwg/multus-cni.v3 => github.com/k8snetworkplumbingwg/multus-cni v0.0.0-20220926142625-1aac2431b86a
+# gopkg.in/k8snetworkplumbingwg/multus-cni.v3 => github.com/k8snetworkplumbingwg/multus-cni v0.0.0-20221014153412-fa8a6e688081
