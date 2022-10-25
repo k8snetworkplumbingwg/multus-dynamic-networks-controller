@@ -346,8 +346,8 @@ func (pnc *PodNetworksController) updatePodNetworkStatus(pod *corev1.Pod, newIfa
 
 func networkSelectionElements(podAnnotations map[string]string, podNamespace string) ([]*nadv1.NetworkSelectionElement, error) {
 	podNetworks, ok := podAnnotations[nadv1.NetworkAttachmentAnnot]
-	if !ok {
-		return nil, fmt.Errorf("the pod is missing the \"%s\" annotation on its annotations: %+v", nadv1.NetworkAttachmentAnnot, podAnnotations)
+	if !ok || podNetworks == "" {
+		return []*nadv1.NetworkSelectionElement{}, nil
 	}
 	podNetworkSelectionElements, err := annotations.ParsePodNetworkAnnotations(podNetworks, podNamespace)
 	if err != nil {

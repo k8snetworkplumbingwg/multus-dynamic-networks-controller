@@ -173,7 +173,7 @@ var _ = Describe("Multus dynamic networks controller", func() {
 			})
 		})
 
-		XContext("a provisioned pod featuring *only* the cluster's default network", func() {
+		Context("a provisioned pod featuring *only* the cluster's default network", func() {
 			var pod *corev1.Pod
 
 			BeforeEach(func() {
