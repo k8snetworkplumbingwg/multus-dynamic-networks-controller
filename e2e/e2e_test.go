@@ -54,18 +54,18 @@ var _ = Describe("Multus dynamic networks controller", func() {
 			Expect(clients.DeleteNamespace(namespace)).To(Succeed())
 		})
 
-		Context("a provisioned pod", func() {
+		filterPodNonDefaultNetworks := func() []nettypes.NetworkStatus {
+			return status.FilterPodsNetworkStatus(clients, namespace, podName, func(networkStatus nettypes.NetworkStatus) bool {
+				return !networkStatus.Default
+			})
+		}
+
+		Context("a provisioned pod having network selection elements", func() {
 			var pod *corev1.Pod
 
 			initialIfaceNetworkStatus := nettypes.NetworkStatus{
 				Name:      namespacedName(namespace, networkName),
 				Interface: initialPodIfaceName,
-			}
-
-			filterPodNonDefaultNetworks := func() []nettypes.NetworkStatus {
-				return status.FilterPodsNetworkStatus(clients, namespace, podName, func(networkStatus nettypes.NetworkStatus) bool {
-					return !networkStatus.Default
-				})
 			}
 
 			BeforeEach(func() {
@@ -172,6 +172,45 @@ var _ = Describe("Multus dynamic networks controller", func() {
 				})
 			})
 		})
+
+		XContext("a provisioned pod featuring *only* the cluster's default network", func() {
+			var pod *corev1.Pod
+
+			BeforeEach(func() {
+				var err error
+				pod, err = clients.ProvisionPod(
+					podName,
+					namespace,
+					podAppLabel(podName),
+					PodNetworkSelectionElements())
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			AfterEach(func() {
+				Expect(clients.DeletePod(pod)).To(Succeed())
+			})
+
+			It("manages to add a new interface to a running pod", func() {
+				const (
+					desiredMACAddr = "02:03:04:05:06:07"
+					ifaceToAdd     = "ens58"
+				)
+
+				Expect(clients.AddNetworkToPod(pod, &nettypes.NetworkSelectionElement{
+					Name:             networkName,
+					Namespace:        namespace,
+					InterfaceRequest: ifaceToAdd,
+					MacRequest:       desiredMACAddr,
+				})).To(Succeed())
+				Eventually(filterPodNonDefaultNetworks).Should(
+					ConsistOf(
+						nettypes.NetworkStatus{
+							Name:      namespacedName(namespace, networkName),
+							Interface: ifaceToAdd,
+							Mac:       desiredMACAddr,
+						}))
+			})
+		})
 	})
 })
 
@@ -259,6 +298,9 @@ type dynamicNetworkInfo struct {
 }
 
 func PodNetworkSelectionElements(networkConfig ...dynamicNetworkInfo) map[string]string {
+	if len(networkConfig) == 0 {
+		return map[string]string{}
+	}
 	var podNetworkConfig []nettypes.NetworkSelectionElement
 	for i := range networkConfig {
 		podNetworkConfig = append(
