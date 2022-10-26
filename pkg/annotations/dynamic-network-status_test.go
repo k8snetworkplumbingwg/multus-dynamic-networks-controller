@@ -19,16 +19,14 @@ import (
 var _ = Describe("NetworkStatusFromResponse", func() {
 	const (
 		ifaceName   = "ens32"
+		ifaceToAdd  = "newiface"
+		macAddr     = "02:03:04:05:06:07"
 		namespace   = "ns1"
 		networkName = "tenantnetwork"
 		podName     = "tpod"
 	)
 
-	DescribeTable("add dynamic interface to network status", func(initialNetStatus []nadv1.NetworkStatus, resultIPs []string, expectedNetworkStatus string) {
-		const (
-			ifaceToAdd = "newiface"
-			macAddr    = "02:03:04:05:06:07"
-		)
+	DescribeTable("add dynamic interface to network status", func(initialNetStatus []nadv1.NetworkStatus, resultIPs []string, expectedNetworkStatus []nadv1.NetworkStatus) {
 		Expect(
 			AddDynamicIfaceToStatus(
 				newPod(podName, namespace, initialNetStatus...),
@@ -37,7 +35,18 @@ var _ = Describe("NetworkStatusFromResponse", func() {
 			),
 		).To(Equal(expectedNetworkStatus))
 	},
-		Entry("initial empty pod", []nadv1.NetworkStatus{}, nil, `[{"name":"ns1/tenantnetwork","interface":"newiface","mac":"02:03:04:05:06:07","dns":{}}]`),
+		Entry("initial empty pod", []nadv1.NetworkStatus{}, nil, []nadv1.NetworkStatus{
+			{
+				Name:      NamespacedName(namespace, networkName),
+				Interface: ifaceToAdd,
+				Mac:       macAddr,
+				DNS: nadv1.DNS{
+					Nameservers: []string{},
+					Domain:      "",
+					Search:      []string{},
+					Options:     []string{},
+				},
+			}}),
 		Entry("pod with a network present in the network status", []nadv1.NetworkStatus{
 			{
 				Name:      "net1",
@@ -45,7 +54,24 @@ var _ = Describe("NetworkStatusFromResponse", func() {
 				Mac:       "00:00:00:20:10:00",
 			}},
 			nil,
-			`[{"name":"net1","interface":"iface1","mac":"00:00:00:20:10:00","dns":{}},{"name":"ns1/tenantnetwork","interface":"newiface","mac":"02:03:04:05:06:07","dns":{}}]`),
+			[]nadv1.NetworkStatus{
+				{
+					Name:      "net1",
+					Interface: "iface1",
+					Mac:       "00:00:00:20:10:00",
+				},
+				{
+					Name:      NamespacedName(namespace, networkName),
+					Interface: ifaceToAdd,
+					Mac:       macAddr,
+					DNS: nadv1.DNS{
+						Nameservers: []string{},
+						Domain:      "",
+						Search:      []string{},
+						Options:     []string{},
+					},
+				}},
+		),
 		Entry("result with IPs", []nadv1.NetworkStatus{
 			{
 				Name:      "net1",
@@ -53,9 +79,27 @@ var _ = Describe("NetworkStatusFromResponse", func() {
 				Mac:       "00:00:00:20:10:00",
 			}},
 			[]string{"10.10.10.10/24"},
-			`[{"name":"net1","interface":"iface1","mac":"00:00:00:20:10:00","dns":{}},{"name":"ns1/tenantnetwork","interface":"newiface","ips":["10.10.10.10"],"mac":"02:03:04:05:06:07","dns":{}}]`))
+			[]nadv1.NetworkStatus{
+				{
+					Name:      "net1",
+					Interface: "iface1",
+					Mac:       "00:00:00:20:10:00",
+				},
+				{
+					Name:      NamespacedName(namespace, networkName),
+					Interface: ifaceToAdd,
+					Mac:       macAddr,
+					IPs:       []string{"10.10.10.10"},
+					DNS: nadv1.DNS{
+						Nameservers: []string{},
+						Domain:      "",
+						Search:      []string{},
+						Options:     []string{},
+					},
+				}},
+		))
 
-	DescribeTable("remove an interface to the current network status", func(initialNetStatus []nadv1.NetworkStatus, networkName, ifaceToRemove, expectedNetworkStatus string) {
+	DescribeTable("remove an interface to the current network status", func(initialNetStatus []nadv1.NetworkStatus, networkName string, ifaceToRemove string, expectedNetworkStatus []nadv1.NetworkStatus) {
 		Expect(
 			DeleteDynamicIfaceFromStatus(
 				newPod(podName, namespace, initialNetStatus...),
@@ -63,19 +107,29 @@ var _ = Describe("NetworkStatusFromResponse", func() {
 			),
 		).To(Equal(expectedNetworkStatus))
 	},
-		Entry("when there aren't any existing interfaces", nil, "net1", "iface1", "[]"),
+		Entry("when there aren't any existing interfaces", nil, "net1", "iface1", []nadv1.NetworkStatus{}),
 		Entry("when we remove all the currently existing interfaces", []nadv1.NetworkStatus{
 			{
 				Name:      NamespacedName(namespace, networkName),
 				Interface: "iface1",
 				Mac:       "00:00:00:20:10:00",
-			}}, networkName, "iface1", "[]"),
+			}}, networkName, "iface1", []nadv1.NetworkStatus{}),
 		Entry("when there is *not* a matching interface to remove", []nadv1.NetworkStatus{
 			{
 				Name:      NamespacedName(namespace, networkName),
 				Interface: "iface1",
 				Mac:       "00:00:00:20:10:00",
-			}}, "net2", "iface1", `[{"name":"ns1/tenantnetwork","interface":"iface1","mac":"00:00:00:20:10:00","dns":{}}]`),
+			}},
+			"net2",
+			"iface1",
+			[]nadv1.NetworkStatus{
+				{
+					Name:      NamespacedName(namespace, networkName),
+					Interface: "iface1",
+					Mac:       "00:00:00:20:10:00",
+				},
+			},
+		),
 		Entry("when we remove one of the existing interfaces", []nadv1.NetworkStatus{
 			{
 				Name:      NamespacedName(namespace, networkName),
@@ -87,7 +141,17 @@ var _ = Describe("NetworkStatusFromResponse", func() {
 				Interface: "iface2",
 				Mac:       "aa:bb:cc:20:10:00",
 			},
-		}, "net2", "iface2", `[{"name":"ns1/tenantnetwork","interface":"iface1","mac":"00:00:00:20:10:00","dns":{}}]`))
+		},
+			"net2",
+			"iface2",
+			[]nadv1.NetworkStatus{
+				{
+					Name:      NamespacedName(namespace, networkName),
+					Interface: "iface1",
+					Mac:       "00:00:00:20:10:00",
+				},
+			},
+		))
 })
 
 func newPod(podName string, namespace string, netStatus ...nadv1.NetworkStatus) *corev1.Pod {

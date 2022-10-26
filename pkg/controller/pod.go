@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -9,7 +8,6 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	v1coreinformerfactory "k8s.io/client-go/informers"
@@ -283,7 +281,7 @@ func (pnc *PodNetworksController) addNetworks(dynamicAttachmentRequest *DynamicA
 			return fmt.Errorf("failed to compute the updated network status: %v", err)
 		}
 
-		if err := pnc.updatePodNetworkStatus(pod, newIfaceStatus); err != nil {
+		if err := nadutils.SetNetworkStatus(pnc.k8sClientSet, pod, newIfaceStatus); err != nil {
 			return err
 		}
 
@@ -334,22 +332,13 @@ func (pnc *PodNetworksController) removeNetworks(dynamicAttachmentRequest *Dynam
 				err,
 			)
 		}
-		if err := pnc.updatePodNetworkStatus(pod, newIfaceStatus); err != nil {
+		if err := nadutils.SetNetworkStatus(pnc.k8sClientSet, pod, newIfaceStatus); err != nil {
 			return err
 		}
 
 		pnc.Eventf(pod, corev1.EventTypeNormal, "RemovedInterface", removeIfaceEventFormat(pod, netToRemove))
 	}
 
-	return nil
-}
-
-func (pnc *PodNetworksController) updatePodNetworkStatus(pod *corev1.Pod, newIfaceStatus string) error {
-	pod.Annotations[nadv1.NetworkStatusAnnot] = newIfaceStatus
-
-	if _, err := pnc.k8sClientSet.CoreV1().Pods(pod.GetNamespace()).Update(context.Background(), pod, metav1.UpdateOptions{}); err != nil {
-		return fmt.Errorf("failed to update pod's network-status annotations for %s: %v", pod.GetName(), err)
-	}
 	return nil
 }
 
