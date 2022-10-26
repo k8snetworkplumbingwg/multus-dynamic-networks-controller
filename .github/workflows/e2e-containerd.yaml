@@ -1,4 +1,4 @@
-name: e2e tests - containerd
+name: End-to-end tests (containerd)
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build:
+  e2e-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-python@v2
@@ -28,10 +28,10 @@ jobs:
       - name: Setup kind cluster
         run: hack/e2e-kind-cluster-setup.sh
 
-      - name: Test - provisioning the examples
+      - name: Test provisioning examples
         run: e2e/test-provisioning-examples.sh
 
-      - name: Test - execute golang based e2e tests
+      - name: Run e2e tests
         env:
           KUBECONFIG: /home/runner/.kube/config
         run: make e2e/test
