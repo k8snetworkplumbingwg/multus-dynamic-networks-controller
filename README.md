@@ -11,9 +11,9 @@ Please refer to the
 [multus-cni docs](https://github.com/k8snetworkplumbingwg/multus-cni/blob/master/docs/quickstart.md#creating-a-pod-that-attaches-an-additional-interface)
 for more information on how additional interfaces are added to a pod.
 
-**Disclaimer:** this repo is work in progress, and it currently does **not** provide the advertised feature-set.
-The MVP version **will**. You can track progress - and our definition of MVP - via
-[the project board](https://github.com/users/maiqueb/projects/1).
+We've finally hit MVP. We would be extremely interested in getting your feedback.
+
+Please open issues / RFEs if something does not meet your expectations.
 
 ## Usage
 
@@ -151,3 +151,8 @@ Below you can find information on how to push local code changes to a kind clust
 - push image to local registry: `podman push localhost:5000/maiqueb/multus-dynamic-networks-controller`
 - update manifests to use the generated image: `IMAGE_REGISTRY=localhost:5000/maiqueb make manifests`
 - deploy the controller: `kubectl apply -f manifests/dynamic-networks-controller.yaml`
+
+## Known limitations
+- the networks being hot-plugged **must** feature the `name` attribute in the `spec.config`. This is tracked in this [issue](https://github.com/maiqueb/multus-dynamic-networks-controller/issues/45).
+- the pod controller is not [level driven](https://stackoverflow.com/questions/1966863/level-vs-edge-trigger-network-event-mechanisms). This is tracked in this [RFE](https://github.com/maiqueb/multus-dynamic-networks-controller/issues/48).
+- plug / unplug interfaces to networks requiring device-plugin interaction. We must investigate this further; an RFE **may** be opened once we have the required data.
