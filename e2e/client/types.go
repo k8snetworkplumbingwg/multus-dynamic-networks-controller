@@ -280,14 +280,15 @@ func removeFromDynamicNetworksAnnotation(pod *corev1.Pod, networkName string, ne
 }
 
 func extractPodNetworkSelectionElements(pod *corev1.Pod) ([]*nettypes.NetworkSelectionElement, error) {
-	var currentNetworkSelectionElements []*nettypes.NetworkSelectionElement
 	currentNetworkSelectionElementsString, wasFound := pod.ObjectMeta.Annotations[nettypes.NetworkAttachmentAnnot]
-	if wasFound {
-		var err error
-		currentNetworkSelectionElements, err = annotations.ParsePodNetworkAnnotations(currentNetworkSelectionElementsString, pod.GetNamespace())
-		if err != nil {
-			return nil, err
-		}
+	if !wasFound {
+		return []*nettypes.NetworkSelectionElement{}, nil
 	}
+
+	currentNetworkSelectionElements, err := annotations.ParsePodNetworkAnnotations(currentNetworkSelectionElementsString, pod.GetNamespace())
+	if err != nil {
+		return nil, err
+	}
+
 	return currentNetworkSelectionElements, nil
 }
