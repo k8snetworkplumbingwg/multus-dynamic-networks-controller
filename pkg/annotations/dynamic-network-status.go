@@ -11,10 +11,10 @@ import (
 	multusapi "gopkg.in/k8snetworkplumbingwg/multus-cni.v3/pkg/server/api"
 )
 
-func AddDynamicIfaceToStatus(currentPod *corev1.Pod, networkSelectionElement *nettypes.NetworkSelectionElement, response *multusapi.Response) (string, error) {
+func AddDynamicIfaceToStatus(currentPod *corev1.Pod, networkSelectionElement *nettypes.NetworkSelectionElement, response *multusapi.Response) ([]nettypes.NetworkStatus, error) {
 	currentIfaceStatus, err := podDynamicNetworkStatus(currentPod)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if response != nil && response.Result != nil {
@@ -25,22 +25,18 @@ func AddDynamicIfaceToStatus(currentPod *corev1.Pod, networkSelectionElement *ne
 			nil,
 		)
 		if err != nil {
-			return "", fmt.Errorf("failed to create NetworkStatus from the response: %v", err)
+			return nil, fmt.Errorf("failed to create NetworkStatus from the response: %v", err)
 		}
 
-		newIfaceString, err := json.Marshal(append(currentIfaceStatus, *newIfaceStatus))
-		if err != nil {
-			return "", fmt.Errorf("failed to marshall the dynamic networks status after interface creation")
-		}
-		return string(newIfaceString), nil
+		return append(currentIfaceStatus, *newIfaceStatus), nil
 	}
-	return "", fmt.Errorf("got an empty response from multus: %+v", response)
+	return nil, fmt.Errorf("got an empty response from multus: %+v", response)
 }
 
-func DeleteDynamicIfaceFromStatus(currentPod *corev1.Pod, networkSelectionElement *nettypes.NetworkSelectionElement) (string, error) {
+func DeleteDynamicIfaceFromStatus(currentPod *corev1.Pod, networkSelectionElement *nettypes.NetworkSelectionElement) ([]nettypes.NetworkStatus, error) {
 	currentIfaceStatus, err := podDynamicNetworkStatus(currentPod)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	netName := NamespacedName(networkSelectionElement.Namespace, networkSelectionElement.Name)
@@ -52,12 +48,7 @@ func DeleteDynamicIfaceFromStatus(currentPod *corev1.Pod, networkSelectionElemen
 		}
 		newIfaceStatus = append(newIfaceStatus, currentIfaceStatus[i])
 	}
-
-	newIfaceString, err := json.Marshal(newIfaceStatus)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshall the dynamic networks status after deleting interface")
-	}
-	return string(newIfaceString), nil
+	return newIfaceStatus, nil
 }
 
 func podDynamicNetworkStatus(currentPod *corev1.Pod) ([]nettypes.NetworkStatus, error) {
