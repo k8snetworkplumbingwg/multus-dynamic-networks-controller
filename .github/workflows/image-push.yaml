@@ -45,6 +45,12 @@ jobs:
           tags: ghcr.io/${{ github.repository }}:${{  github.ref_name }}
           file: images/Dockerfile
 
+      - name: Install the j2 dependency
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          pip3 install --user --upgrade j2cli
+          j2 --version
+
       - name: Template release manifests
         if: startsWith(github.ref, 'refs/tags/')
         run: IMAGE_TAG=${{  github.ref_name }} make manifests
