@@ -24,6 +24,7 @@ import (
 	nadclient "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned"
 	nadinformers "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/informers/externalversions"
 	nadlisterv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/listers/k8s.cni.cncf.io/v1"
+	nadutils "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/utils"
 	multusapi "gopkg.in/k8snetworkplumbingwg/multus-cni.v3/pkg/server/api"
 
 	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/annotations"
@@ -255,6 +256,10 @@ func (pnc *PodNetworksController) addNetworks(dynamicAttachmentRequest *DynamicA
 			klog.Errorf("failed to access the networkattachmentdefinition %s/%s: %v", netToAdd.Namespace, netToAdd.Name, err)
 			return err
 		}
+		netAttachDefWithDefaults, err := serializeNetAttachDefWithDefaults(netAttachDef)
+		if err != nil {
+			return err
+		}
 		response, err := pnc.multusClient.InvokeDelegate(
 			multusapi.CreateDelegateRequest(
 				multuscni.CmdAdd,
@@ -264,7 +269,7 @@ func (pnc *PodNetworksController) addNetworks(dynamicAttachmentRequest *DynamicA
 				pod.GetNamespace(),
 				pod.GetName(),
 				string(pod.UID),
-				[]byte(netAttachDef.Spec.Config),
+				netAttachDefWithDefaults,
 				interfaceAttributes(*netToAdd),
 			))
 
@@ -299,6 +304,10 @@ func (pnc *PodNetworksController) removeNetworks(dynamicAttachmentRequest *Dynam
 			return err
 		}
 
+		netAttachDefWithDefaults, err := serializeNetAttachDefWithDefaults(netAttachDef)
+		if err != nil {
+			return err
+		}
 		response, err := pnc.multusClient.InvokeDelegate(
 			multusapi.CreateDelegateRequest(
 				multuscni.CmdDel,
@@ -308,7 +317,7 @@ func (pnc *PodNetworksController) removeNetworks(dynamicAttachmentRequest *Dynam
 				pod.GetNamespace(),
 				pod.GetName(),
 				string(pod.UID),
-				[]byte(netAttachDef.Spec.Config),
+				netAttachDefWithDefaults,
 				interfaceAttributes(*netToRemove),
 			))
 		if err != nil {
@@ -462,4 +471,16 @@ func interfaceAttributes(networkData nadv1.NetworkSelectionElement) *multusapi.D
 		}
 	}
 	return nil
+}
+
+func serializeNetAttachDefWithDefaults(netAttachDef *nadv1.NetworkAttachmentDefinition) ([]byte, error) {
+	netAttachDefWithDefaults, err := nadutils.GetCNIConfigFromSpec(netAttachDef.Spec.Config, netAttachDef.GetName())
+	if err != nil {
+		return nil, fmt.Errorf(
+			"failed to apply defaults to the net-attach-def %s: %v",
+			annotations.NamespacedName(netAttachDef.GetNamespace(), netAttachDef.GetName()),
+			err,
+		)
+	}
+	return netAttachDefWithDefaults, nil
 }
