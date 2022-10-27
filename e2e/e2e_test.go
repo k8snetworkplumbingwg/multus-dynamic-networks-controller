@@ -230,10 +230,9 @@ func clusterConfig() (*rest.Config, error) {
 }
 
 func macvlanNetworkWithoutIPAM(networkName string, namespaceName string) *nettypes.NetworkAttachmentDefinition {
-	macvlanConfig := fmt.Sprintf(`{
+	macvlanConfig := `{
         "cniVersion": "0.3.0",
         "disableCheck": true,
-        "name": "%s",
         "plugins": [
             {
                 "type": "macvlan",
@@ -241,7 +240,7 @@ func macvlanNetworkWithoutIPAM(networkName string, namespaceName string) *nettyp
                 "mode": "bridge"
             }
         ]
-    }`, networkName)
+    }`
 	return generateNetAttachDefSpec(networkName, namespaceName, macvlanConfig)
 }
 

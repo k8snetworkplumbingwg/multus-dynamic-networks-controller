@@ -153,6 +153,5 @@ Below you can find information on how to push local code changes to a kind clust
 - deploy the controller: `kubectl apply -f manifests/dynamic-networks-controller.yaml`
 
 ## Known limitations
-- the networks being hot-plugged **must** feature the `name` attribute in the `spec.config`. This is tracked in this [issue](https://github.com/maiqueb/multus-dynamic-networks-controller/issues/45).
 - the pod controller is not [level driven](https://stackoverflow.com/questions/1966863/level-vs-edge-trigger-network-event-mechanisms). This is tracked in this [RFE](https://github.com/maiqueb/multus-dynamic-networks-controller/issues/48).
 - plug / unplug interfaces to networks requiring device-plugin interaction. We must investigate this further; an RFE **may** be opened once we have the required data.
