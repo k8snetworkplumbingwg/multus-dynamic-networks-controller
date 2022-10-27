@@ -3,6 +3,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*.*.*'
 env:
   image-push-owner: 'maiqueb'
 jobs:
@@ -32,3 +34,24 @@ jobs:
           push: true
           tags: ghcr.io/${{ github.repository }}:latest-amd64
           file: images/Dockerfile
+
+      - name: Push stable container image
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/${{ github.repository }}:${{  github.ref_name }}
+          file: images/Dockerfile
+
+      - name: Template release manifests
+        if: startsWith(github.ref, 'refs/tags/')
+        run: IMAGE_TAG=${{  github.ref_name }} make manifests
+
+      - name: Release the kraken
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        generate_release_notes: true
+        files: |
+          manifests/crio-dynamic-networks-controller.yaml
+          manifests/dynamic-networks-controller.yaml
