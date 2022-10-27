@@ -5,6 +5,7 @@ on:
       - main
     tags:
       - 'v*.*.*'
+      - 'gogotagmachine'
 env:
   image-push-owner: 'maiqueb'
 jobs:
