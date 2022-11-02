@@ -73,7 +73,8 @@ metadata:
     k8s.v1.cni.cncf.io/networks: '[
             {
                 "name": "macvlan1-config",
-                "ips": [ "10.1.1.11/24" ]
+                "ips": [ "10.1.1.11/24" ],
+                "interface": "net1"
             }
     ]'
   labels:
@@ -84,6 +85,7 @@ spec:
     image: docker.io/library/alpine:latest
     command: ["/bin/sleep", "10000"]
 ```
+**NOTE** the `"interface": "net1"` in the JSON networks annotations element is an optional parameter, however it's needed right now to hot-unplug this interface see [issue](https://github.com/maiqueb/multus-dynamic-networks-controller/issues/63)
 
 We would run this example yaml to **add** an interface from it:
 ```yaml
@@ -96,11 +98,13 @@ metadata:
     k8s.v1.cni.cncf.io/networks: '[
             {
                 "name": "macvlan1-config",
-                "ips": [ "10.1.1.11/24" ]
+                "ips": [ "10.1.1.11/24" ],
+                "interface": "net1"
             },
             {
                 "name": "macvlan1-config",
-                "interface": "ens4",
+                "ips": [ "10.1.2.11/24" ],
+                "interface": "ens4"
             }
     ]'
   labels:
