@@ -11,7 +11,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.4.0
 	github.com/onsi/gomega v1.22.1
 	github.com/opencontainers/runtime-spec v1.0.3-0.20210326190908-1c3f411f0417
-	google.golang.org/grpc v1.47.0
+	google.golang.org/grpc v1.50.1
 	gopkg.in/k8snetworkplumbingwg/multus-cni.v3 v3.9.1
 	k8s.io/api v0.24.4
 	k8s.io/apimachinery v0.24.4
