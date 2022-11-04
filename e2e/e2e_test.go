@@ -246,7 +246,7 @@ func macvlanNetworkWithoutIPAM(networkName string, namespaceName string) *nettyp
 
 func macvlanNetworkWitStaticIPAM(networkName string, namespaceName string) *nettypes.NetworkAttachmentDefinition {
 	macvlanConfig := fmt.Sprintf(`{
-        "cniVersion": "1.0.0",
+        "cniVersion": "0.3.0",
         "disableCheck": true,
         "name": "%s",
         "plugins": [
