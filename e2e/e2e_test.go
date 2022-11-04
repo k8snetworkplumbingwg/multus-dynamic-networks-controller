@@ -26,10 +26,9 @@ func TestDynamicNetworksControllerE2E(t *testing.T) {
 
 var _ = Describe("Multus dynamic networks controller", func() {
 	const (
-		defaultLowerDeviceIfaceName = "eth0"
-		namespace                   = "ns1"
-		networkName                 = "tenant-network"
-		podName                     = "tiny-winy-pod"
+		namespace   = "ns1"
+		networkName = "tenant-network"
+		podName     = "tiny-winy-pod"
 	)
 	var clients *client.E2EClient
 
@@ -47,7 +46,7 @@ var _ = Describe("Multus dynamic networks controller", func() {
 		BeforeEach(func() {
 			_, err := clients.AddNamespace(namespace)
 			Expect(err).NotTo(HaveOccurred())
-			_, err = clients.AddNetAttachDef(macvlanNetworkWithoutIPAM(networkName, namespace, defaultLowerDeviceIfaceName))
+			_, err = clients.AddNetAttachDef(macvlanNetworkWithoutIPAM(networkName, namespace, lowerDeviceName()))
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -131,7 +130,7 @@ var _ = Describe("Multus dynamic networks controller", func() {
 				macAddress := "02:03:04:05:06:07"
 
 				BeforeEach(func() {
-					_, err := clients.AddNetAttachDef(macvlanNetworkWitStaticIPAM(ipamNetworkToAdd, namespace, defaultLowerDeviceIfaceName))
+					_, err := clients.AddNetAttachDef(macvlanNetworkWitStaticIPAM(ipamNetworkToAdd, namespace, lowerDeviceName()))
 					Expect(err).NotTo(HaveOccurred())
 					Expect(clients.AddNetworkToPod(pod, &nettypes.NetworkSelectionElement{
 						Name:             ipamNetworkToAdd,
@@ -328,4 +327,16 @@ func namespacedName(namespace, name string) string {
 
 func ipWithMask(ip string, netmaskLen int) string {
 	return fmt.Sprintf("%s/%d", ip, netmaskLen)
+}
+
+func lowerDeviceName() string {
+	const (
+		defaultLowerDeviceIfaceName = "eth0"
+		lowerDeviceEnvVarKeyName    = "LOWER_DEVICE"
+	)
+
+	if lowerDeviceIfaceName, wasFound := os.LookupEnv(lowerDeviceEnvVarKeyName); wasFound {
+		return lowerDeviceIfaceName
+	}
+	return defaultLowerDeviceIfaceName
 }
