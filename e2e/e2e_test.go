@@ -26,9 +26,10 @@ func TestDynamicNetworksControllerE2E(t *testing.T) {
 
 var _ = Describe("Multus dynamic networks controller", func() {
 	const (
-		namespace   = "ns1"
-		networkName = "tenant-network"
-		podName     = "tiny-winy-pod"
+		defaultLowerDeviceIfaceName = "eth0"
+		namespace                   = "ns1"
+		networkName                 = "tenant-network"
+		podName                     = "tiny-winy-pod"
 	)
 	var clients *client.E2EClient
 
@@ -46,7 +47,7 @@ var _ = Describe("Multus dynamic networks controller", func() {
 		BeforeEach(func() {
 			_, err := clients.AddNamespace(namespace)
 			Expect(err).NotTo(HaveOccurred())
-			_, err = clients.AddNetAttachDef(macvlanNetworkWithoutIPAM(networkName, namespace))
+			_, err = clients.AddNetAttachDef(macvlanNetworkWithoutIPAM(networkName, namespace, defaultLowerDeviceIfaceName))
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -130,7 +131,7 @@ var _ = Describe("Multus dynamic networks controller", func() {
 				macAddress := "02:03:04:05:06:07"
 
 				BeforeEach(func() {
-					_, err := clients.AddNetAttachDef(macvlanNetworkWitStaticIPAM(ipamNetworkToAdd, namespace))
+					_, err := clients.AddNetAttachDef(macvlanNetworkWitStaticIPAM(ipamNetworkToAdd, namespace, defaultLowerDeviceIfaceName))
 					Expect(err).NotTo(HaveOccurred())
 					Expect(clients.AddNetworkToPod(pod, &nettypes.NetworkSelectionElement{
 						Name:             ipamNetworkToAdd,
@@ -229,22 +230,22 @@ func clusterConfig() (*rest.Config, error) {
 	return config, nil
 }
 
-func macvlanNetworkWithoutIPAM(networkName string, namespaceName string) *nettypes.NetworkAttachmentDefinition {
-	macvlanConfig := `{
+func macvlanNetworkWithoutIPAM(networkName string, namespaceName string, lowerDevice string) *nettypes.NetworkAttachmentDefinition {
+	macvlanConfig := fmt.Sprintf(`{
         "cniVersion": "0.3.0",
         "disableCheck": true,
         "plugins": [
             {
                 "type": "macvlan",
-                "master": "eth0",
+                "master": "%s",
                 "mode": "bridge"
             }
         ]
-    }`
+    }`, lowerDevice)
 	return generateNetAttachDefSpec(networkName, namespaceName, macvlanConfig)
 }
 
-func macvlanNetworkWitStaticIPAM(networkName string, namespaceName string) *nettypes.NetworkAttachmentDefinition {
+func macvlanNetworkWitStaticIPAM(networkName string, namespaceName string, lowerDevice string) *nettypes.NetworkAttachmentDefinition {
 	macvlanConfig := fmt.Sprintf(`{
         "cniVersion": "0.3.0",
         "disableCheck": true,
@@ -253,7 +254,7 @@ func macvlanNetworkWitStaticIPAM(networkName string, namespaceName string) *nett
 			{
 				"type": "macvlan",
 				"capabilities": { "ips": true },
-				"master": "eth1",
+				"master": "%s",
 				"mode": "bridge",
 				"ipam": {
 					"type": "static"
@@ -262,7 +263,7 @@ func macvlanNetworkWitStaticIPAM(networkName string, namespaceName string) *nett
 				"type": "tuning"
 			}
         ]
-    }`, networkName)
+    }`, networkName, lowerDevice)
 	return generateNetAttachDefSpec(networkName, namespaceName, macvlanConfig)
 }
 
