@@ -29,11 +29,11 @@ import (
 	nadinformers "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/informers/externalversions"
 	multusapi "gopkg.in/k8snetworkplumbingwg/multus-cni.v3/pkg/server/api"
 
-	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/annotations"
-	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/cri"
-	fakecri "github.com/maiqueb/multus-dynamic-networks-controller/pkg/cri/fake"
-	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/multuscni"
-	fakemultusclient "github.com/maiqueb/multus-dynamic-networks-controller/pkg/multuscni/fake"
+	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/annotations"
+	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/cri"
+	fakecri "github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/cri/fake"
+	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/multuscni"
+	fakemultusclient "github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/multuscni/fake"
 )
 
 func TestController(t *testing.T) {

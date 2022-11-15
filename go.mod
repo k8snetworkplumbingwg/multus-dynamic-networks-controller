@@ -1,4 +1,4 @@
-module github.com/maiqueb/multus-dynamic-networks-controller
+module github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller
 
 go 1.18
 

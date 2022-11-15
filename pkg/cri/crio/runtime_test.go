@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/cri/crio/fake"
+	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/cri/crio/fake"
 )
 
 func TestController(t *testing.T) {

@@ -8,7 +8,7 @@ import (
 
 	nettypes "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
-	"github.com/maiqueb/multus-dynamic-networks-controller/e2e/client"
+	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/e2e/client"
 )
 
 type NetworkStatusPredicate func(networkStatus nettypes.NetworkStatus) bool

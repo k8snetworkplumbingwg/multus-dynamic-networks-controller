@@ -27,10 +27,10 @@ import (
 	nadutils "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/utils"
 	multusapi "gopkg.in/k8snetworkplumbingwg/multus-cni.v3/pkg/server/api"
 
-	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/annotations"
-	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/cri"
-	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/logging"
-	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/multuscni"
+	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/annotations"
+	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/cri"
+	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/logging"
+	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/multuscni"
 )
 
 const (

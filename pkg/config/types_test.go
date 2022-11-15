@@ -8,7 +8,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/cri"
+	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/cri"
 )
 
 func TestConfig(t *testing.T) {
