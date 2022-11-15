@@ -9,6 +9,8 @@ NAMESPACE ?= kube-system
 CONTAINERD_SOCKET_PATH ?= "/run/containerd/containerd.sock"
 CRIO_SOCKET_PATH ?= "/run/crio/crio.sock"
 
+GIT_SHA := $(shell git describe --no-match  --always --abbrev=40 --dirty)
+
 .PHONY: manifests
 
 all: build test
@@ -20,7 +22,7 @@ clean:
 	rm -rf bin/ manifests/
 
 img-build: build test
-	$(OCI_BIN) build -t ${IMAGE_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} -f images/Dockerfile .
+	$(OCI_BIN) build -t ${IMAGE_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} -f images/Dockerfile --build-arg git_sha=$(GIT_SHA) .
 
 manifests:
 	IMAGE_REGISTRY=${IMAGE_REGISTRY} IMAGE_TAG=${IMAGE_TAG} CRI_SOCKET_PATH=${CONTAINERD_SOCKET_PATH} NAMESPACE=${NAMESPACE} hack/generate_manifests.sh
