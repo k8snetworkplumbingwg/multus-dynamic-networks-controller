@@ -1,7 +1,7 @@
 GO ?= go
 OCI_BIN ?= docker
 
-IMAGE_REGISTRY ?= ghcr.io/maiqueb
+IMAGE_REGISTRY ?= ghcr.io/k8snetworkplumbingwg
 IMAGE_NAME ?= multus-dynamic-networks-controller
 IMAGE_TAG ?= latest-amd64
 NAMESPACE ?= kube-system

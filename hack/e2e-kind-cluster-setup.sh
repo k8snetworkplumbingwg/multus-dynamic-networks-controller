@@ -3,7 +3,7 @@ set -xe
 
 CNI_VERSION=${CNI_VERSION:-0.4.0}
 OCI_BIN=${OCI_BIN:-docker}
-IMG_REGISTRY=${IMAGE_REGISTRY:-localhost:5000/maiqueb}
+IMG_REGISTRY=${IMAGE_REGISTRY:-localhost:5000/k8snetworkplumbingwg}
 IMG_TAG="latest"
 
 setup_cluster() {
