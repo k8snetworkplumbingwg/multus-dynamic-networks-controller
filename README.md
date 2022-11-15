@@ -156,6 +156,13 @@ Below you can find information on how to push local code changes to a kind clust
 - update manifests to use the generated image: `IMAGE_REGISTRY=localhost:5000/maiqueb make manifests`
 - deploy the controller: `kubectl apply -f manifests/dynamic-networks-controller.yaml`
 
+### Mapping a container image to the code
+To know which git commit ID is in a certain container image perform the following steps:
+```bash
+podman inspect ghcr.io/k8snetworkplumbingwg/multus-dynamic-networks-controller:latest-amd64 -f '{{index .Labels "multi.GIT_SHA"}}'
+e1db8da3c6267b3c2a5aca72ef8dd6a10b0ec9fd
+```
+
 ## Known limitations
 - the pod controller is not [level driven](https://stackoverflow.com/questions/1966863/level-vs-edge-trigger-network-event-mechanisms). This is tracked in this [RFE](https://github.com/maiqueb/multus-dynamic-networks-controller/issues/48).
 - plug / unplug interfaces to networks requiring device-plugin interaction. We must investigate this further; an RFE **may** be opened once we have the required data.
