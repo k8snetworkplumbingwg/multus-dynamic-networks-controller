@@ -14,9 +14,9 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
+	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/e2e/client"
+	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/e2e/status"
 	nettypes "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
-	"github.com/maiqueb/multus-dynamic-networks-controller/e2e/client"
-	"github.com/maiqueb/multus-dynamic-networks-controller/e2e/status"
 )
 
 func TestDynamicNetworksControllerE2E(t *testing.T) {

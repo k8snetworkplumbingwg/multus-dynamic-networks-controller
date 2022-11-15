@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/cri"
+	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/cri"
 )
 
 const (

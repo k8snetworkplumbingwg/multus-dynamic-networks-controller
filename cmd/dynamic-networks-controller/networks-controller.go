@@ -21,13 +21,13 @@ import (
 	nadclient "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned"
 	nadinformers "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/informers/externalversions"
 
-	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/config"
-	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/controller"
-	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/cri"
-	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/cri/containerd"
-	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/cri/crio"
-	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/logging"
-	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/multuscni"
+	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/config"
+	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/controller"
+	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/cri"
+	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/cri/containerd"
+	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/cri/crio"
+	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/logging"
+	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/multuscni"
 )
 
 const (

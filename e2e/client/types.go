@@ -17,7 +17,7 @@ import (
 	nettypes "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	netclient "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1"
 
-	"github.com/maiqueb/multus-dynamic-networks-controller/pkg/annotations"
+	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/annotations"
 )
 
 type E2EClient struct {

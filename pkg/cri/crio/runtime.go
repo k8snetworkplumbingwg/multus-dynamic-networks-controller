@@ -11,7 +11,7 @@ import (
 
 	crioruntime "k8s.io/cri-api/pkg/apis/runtime/v1"
 
-	criotypes "github.com/maiqueb/multus-dynamic-networks-controller/pkg/cri/crio/types"
+	criotypes "github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/cri/crio/types"
 )
 
 // Runtime represents a connection to the CRI-O runtime
