@@ -43,6 +43,8 @@ jobs:
           push: true
           tags: ghcr.io/${{ github.repository }}:${{  github.ref_name }}
           file: images/Dockerfile
+          build-args:
+            - git_sha=${{ github.event.pull_request.head.sha }}
 
       - name: Install the j2 dependency
         if: startsWith(github.ref, 'refs/tags/')
