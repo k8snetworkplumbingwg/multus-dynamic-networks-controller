@@ -7,3 +7,9 @@ RUN GOOS=linux CGO_ENABLED=0 go build -o /dynamic-networks-controller ./cmd/dyna
 
 FROM registry.access.redhat.com/ubi8/ubi-minimal
 COPY --from=builder /dynamic-networks-controller /dynamic-networks-controller
+
+ARG git_url=https://github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller.git
+ARG git_sha=NONE
+
+LABEL multi.GIT_URL=${git_url} \
+      multi.GIT_SHA=${git_sha}
