@@ -13,3 +13,5 @@ ARG git_sha=NONE
 
 LABEL multi.GIT_URL=${git_url} \
       multi.GIT_SHA=${git_sha}
+
+ENV DYNAMIC_NETWORK_CONTROLLER_COMMIT_HASH="${git_sha}"
