@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	ErrorLoadingConfig int = iota
+	ErrorLoadingConfig int = iota + 1
 	ErrorBuildingController
 )
 
