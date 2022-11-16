@@ -44,6 +44,8 @@ func main() {
 
 	flag.Parse()
 
+	klog.Infof("dynamic-networks-controller: built from [%s]", controllerVersion())
+
 	controllerConfig, err := config.LoadConfig(*configFilePath)
 	if err != nil {
 		klog.Errorf("failed to load the multus-daemon configuration: %v", err)
@@ -152,4 +154,11 @@ func newContainerRuntime(configuration *config.Multus) (cri.ContainerRuntime, er
 		return crio.NewRuntime(configuration.CriSocketPath, shortTimeout)
 	}
 	return containerd.NewContainerdRuntime(configuration.CriSocketPath, shortTimeout)
+}
+
+func controllerVersion() string {
+	if commitSHA, wasFound := os.LookupEnv("DYNAMIC_NETWORK_CONTROLLER_COMMIT_HASH"); wasFound {
+		return commitSHA
+	}
+	return "SHA-NOT-FOUND"
 }
