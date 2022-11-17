@@ -3,7 +3,6 @@ package controller
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"strings"
 	"time"
 
@@ -192,7 +191,7 @@ func (pnc *PodNetworksController) handlePodUpdate(oldObj interface{}, newObj int
 		remove DynamicAttachmentRequestType = "remove"
 	)
 
-	if reflect.DeepEqual(oldPod.Annotations, newPod.Annotations) {
+	if !didNetworkSelectionElementsChange(oldPod, newPod) {
 		return
 	}
 	podNamespace := oldPod.GetNamespace()
@@ -472,4 +471,15 @@ func serializeNetAttachDefWithDefaults(netAttachDef *nadv1.NetworkAttachmentDefi
 		)
 	}
 	return netAttachDefWithDefaults, nil
+}
+
+func didNetworkSelectionElementsChange(oldPod *corev1.Pod, newPod *corev1.Pod) bool {
+	oldNetworkSelectionElementsString, didPodHaveExtraAttachments := oldPod.Annotations[nadv1.NetworkAttachmentAnnot]
+	newNetworkSelectionElementsString, doesPodHaveExtraAttachmentsNow := newPod.Annotations[nadv1.NetworkAttachmentAnnot]
+
+	if didPodHaveExtraAttachments != doesPodHaveExtraAttachmentsNow ||
+		oldNetworkSelectionElementsString != newNetworkSelectionElementsString {
+		return true
+	}
+	return false
 }
