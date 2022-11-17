@@ -25,9 +25,10 @@ func NewFakeClient(currentStatus ...NetworkConfig) *Client {
 }
 
 func (fc *Client) InvokeDelegate(multusRequest *multusapi.Request) (*multusapi.Response, error) {
-	serverReply, wasFound := fc.requestData[key(multusRequest)]
+	ifaceKey := key(multusRequest)
+	serverReply, wasFound := fc.requestData[ifaceKey]
 	if !wasFound {
-		return nil, fmt.Errorf("not found")
+		return nil, fmt.Errorf("not found: %s", ifaceKey)
 	}
 	return serverReply, nil
 }
