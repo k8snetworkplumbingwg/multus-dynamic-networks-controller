@@ -202,6 +202,46 @@ var _ = Describe("Dynamic Attachment controller", func() {
 					}).Should(BeEmpty())
 				})
 			})
+
+			When("an update to an existing attachment occurs", func() {
+				BeforeEach(func() {
+					var err error
+
+					currentPodAttachments, err := networkSelectionElements(pod.Annotations, pod.GetNamespace())
+					Expect(err).NotTo(HaveOccurred())
+					Expect(currentPodAttachments).NotTo(BeEmpty())
+
+					currentPodAttachments[0].MacRequest = "07:06:05:04:03:02"
+					var newAttachments []nad.NetworkSelectionElement
+					for i := range currentPodAttachments {
+						newAttachments = append(newAttachments, *currentPodAttachments[i])
+					}
+
+					serializedAttachments, err := json.Marshal(newAttachments)
+					Expect(err).NotTo(HaveOccurred())
+					pod.Annotations[nad.NetworkAttachmentAnnot] = string(serializedAttachments)
+
+					_, err = k8sClient.CoreV1().Pods(namespace).UpdateStatus(
+						context.TODO(),
+						pod,
+						metav1.UpdateOptions{})
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("nothing happens", func() {
+					Consistently(func() ([]nad.NetworkStatus, error) {
+						updatedPod, err := k8sClient.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+						if err != nil {
+							return nil, err
+						}
+						status, err := networkStatus(updatedPod.Annotations)
+						if err != nil {
+							return nil, err
+						}
+						return status, nil
+					}).Should(ConsistOf(ifaceStatus(namespace, networkName, "net0", "")))
+				})
+			})
 		})
 	})
 })
