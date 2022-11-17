@@ -23,6 +23,7 @@ import (
 	"regexp"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
 
 	nadv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
@@ -133,4 +134,51 @@ func parsePodNetworkObjectName(podnetwork string) (string, string, string, error
 
 	klog.V(5).Infof("parsePodNetworkObjectName: parsed: %s, %s, %s", netNsName, networkName, netIfName)
 	return netNsName, networkName, netIfName, nil
+}
+
+func IndexPodNetworkSelectionElements(pod *corev1.Pod) map[string]nadv1.NetworkSelectionElement {
+	currentPodNetworkSelectionElements, err := networkSelectionElements(pod.GetAnnotations(), pod.GetNamespace())
+	if err != nil {
+		klog.Errorf("could not read pod's network selection elements: %v", *pod)
+		return map[string]nadv1.NetworkSelectionElement{}
+	}
+	indexedNetworkSelectionElements := make(map[string]nadv1.NetworkSelectionElement)
+	for k := range currentPodNetworkSelectionElements {
+		netSelectionElement := currentPodNetworkSelectionElements[k]
+		indexedNetworkSelectionElements[NetworkSelectionElementIndexKey(netSelectionElement)] = netSelectionElement
+	}
+	return indexedNetworkSelectionElements
+}
+
+func networkSelectionElements(podAnnotations map[string]string, podNamespace string) ([]nadv1.NetworkSelectionElement, error) {
+	podNetworks, ok := podAnnotations[nadv1.NetworkAttachmentAnnot]
+	if !ok || podNetworks == "" {
+		return []nadv1.NetworkSelectionElement{}, nil
+	}
+	podNetworkSelectionElements, err := ParsePodNetworkAnnotations(podNetworks, podNamespace)
+	if err != nil {
+		klog.Errorf("failed to extract the network selection elements: %v", err)
+		return nil, err
+	}
+
+	var currentPodNetworkSelectionElements []nadv1.NetworkSelectionElement
+	for i := range podNetworkSelectionElements {
+		currentPodNetworkSelectionElements = append(currentPodNetworkSelectionElements, *podNetworkSelectionElements[i])
+	}
+	return currentPodNetworkSelectionElements, nil
+}
+
+func NetworkSelectionElementIndexKey(netSelectionElement nadv1.NetworkSelectionElement) string {
+	if netSelectionElement.InterfaceRequest != "" {
+		return fmt.Sprintf(
+			"%s/%s/%s",
+			netSelectionElement.Namespace,
+			netSelectionElement.Name,
+			netSelectionElement.InterfaceRequest)
+	}
+
+	return fmt.Sprintf(
+		"%s/%s",
+		netSelectionElement.Namespace,
+		netSelectionElement.Name)
 }

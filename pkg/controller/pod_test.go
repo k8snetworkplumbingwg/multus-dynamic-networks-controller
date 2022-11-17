@@ -115,7 +115,7 @@ var _ = Describe("Dynamic Attachment controller", func() {
 					if err != nil {
 						return nil
 					}
-					status, err := networkStatus(updatedPod.Annotations)
+					status, err := annotations.PodDynamicNetworkStatus(updatedPod)
 					if err != nil {
 						return nil
 					}
@@ -157,7 +157,7 @@ var _ = Describe("Dynamic Attachment controller", func() {
 						if err != nil {
 							return nil, err
 						}
-						status, err := networkStatus(updatedPod.Annotations)
+						status, err := annotations.PodDynamicNetworkStatus(updatedPod)
 						if err != nil {
 							return nil, err
 						}
@@ -194,7 +194,7 @@ var _ = Describe("Dynamic Attachment controller", func() {
 						if err != nil {
 							return nil, err
 						}
-						status, err := networkStatus(updatedPod.Annotations)
+						status, err := annotations.PodDynamicNetworkStatus(updatedPod)
 						if err != nil {
 							return nil, err
 						}

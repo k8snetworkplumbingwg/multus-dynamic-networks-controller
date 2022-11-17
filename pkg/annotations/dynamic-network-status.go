@@ -11,7 +11,7 @@ import (
 )
 
 func AddDynamicIfaceToStatus(currentPod *corev1.Pod, attachmentResults ...AttachmentResult) ([]nettypes.NetworkStatus, error) {
-	currentIfaceStatus, err := podDynamicNetworkStatus(currentPod)
+	currentIfaceStatus, err := PodDynamicNetworkStatus(currentPod)
 	if err != nil {
 		return nil, err
 	}
@@ -35,29 +35,28 @@ func AddDynamicIfaceToStatus(currentPod *corev1.Pod, attachmentResults ...Attach
 	return currentIfaceStatus, nil
 }
 
-func DeleteDynamicIfaceFromStatus(currentPod *corev1.Pod, networkSelectionElements ...*nettypes.NetworkSelectionElement) ([]nettypes.NetworkStatus, error) {
-	currentIfaceStatus, err := podDynamicNetworkStatus(currentPod)
-	if err != nil {
-		return nil, err
+func DeleteDynamicIfaceFromStatus(currentPod *corev1.Pod, networkSelectionElements ...nettypes.NetworkSelectionElement) ([]nettypes.NetworkStatus, error) {
+	indexedStatus := IndexNetworkStatus(currentPod)
+	for _, networkSelectionElement := range networkSelectionElements {
+		netStatusKey := fmt.Sprintf(
+			"%s/%s",
+			NamespacedName(networkSelectionElement.Namespace, networkSelectionElement.Name),
+			networkSelectionElement.InterfaceRequest,
+		)
+		delete(indexedStatus, netStatusKey)
 	}
 
-	var newIfaceStatus []nettypes.NetworkStatus
-	for _, networkSelectionElement := range networkSelectionElements {
-		netName := NamespacedName(networkSelectionElement.Namespace, networkSelectionElement.Name)
-		newIfaceStatus = make([]nettypes.NetworkStatus, 0)
-		for i := range currentIfaceStatus {
-			if currentIfaceStatus[i].Name == netName && currentIfaceStatus[i].Interface == networkSelectionElement.InterfaceRequest {
-				continue
-			}
-			newIfaceStatus = append(newIfaceStatus, currentIfaceStatus[i])
-		}
+	newIfaceStatus := make([]nettypes.NetworkStatus, 0)
+	for networkStatusKey := range indexedStatus {
+		newIfaceStatus = append(newIfaceStatus, indexedStatus[networkStatusKey])
 	}
+
 	return newIfaceStatus, nil
 }
 
-func podDynamicNetworkStatus(currentPod *corev1.Pod) ([]nettypes.NetworkStatus, error) {
+func PodDynamicNetworkStatus(currentPod *corev1.Pod) ([]nettypes.NetworkStatus, error) {
 	var currentIfaceStatus []nettypes.NetworkStatus
-	if currentIfaceStatusString, wasFound := currentPod.Annotations[nettypes.NetworkStatusAnnot]; wasFound {
+	if currentIfaceStatusString, wasFound := currentPod.GetAnnotations()[nettypes.NetworkStatusAnnot]; wasFound {
 		if err := json.Unmarshal([]byte(currentIfaceStatusString), &currentIfaceStatus); err != nil {
 			return nil, fmt.Errorf("could not unmarshall the current dynamic annotations for pod %s: %v", podNameAndNs(currentPod), err)
 		}
@@ -71,4 +70,25 @@ func podNameAndNs(currentPod *corev1.Pod) string {
 
 func NamespacedName(podNamespace string, podName string) string {
 	return fmt.Sprintf("%s/%s", podNamespace, podName)
+}
+
+func IndexNetworkStatus(pod *corev1.Pod) map[string]nettypes.NetworkStatus {
+	currentPodNetworkStatus, err := PodDynamicNetworkStatus(pod)
+	if err != nil {
+		return map[string]nettypes.NetworkStatus{}
+	}
+	indexedNetworkStatus := map[string]nettypes.NetworkStatus{}
+	for i := range currentPodNetworkStatus {
+		if !currentPodNetworkStatus[i].Default {
+			indexedNetworkStatus[networkStatusIndexKey(currentPodNetworkStatus[i])] = currentPodNetworkStatus[i]
+		}
+	}
+	return indexedNetworkStatus
+}
+
+func networkStatusIndexKey(networkStatus nettypes.NetworkStatus) string {
+	return fmt.Sprintf(
+		"%s/%s",
+		networkStatus.Name,
+		networkStatus.Interface)
 }

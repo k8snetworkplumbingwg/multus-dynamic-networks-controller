@@ -1,4 +1,4 @@
-package annotations
+package annotations_test
 
 import (
 	"strings"
@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/annotations"
 	v1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 )
 
@@ -19,17 +20,17 @@ var _ = Describe("Parsing annotations", func() {
 	const namespace = "ns1"
 
 	It("nil input", func() {
-		_, err := ParsePodNetworkAnnotations("", namespace)
+		_, err := annotations.ParsePodNetworkAnnotations("", namespace)
 		Expect(err).To(MatchError("parsePodNetworkAnnotation: pod annotation does not have \"network\" as key"))
 	})
 
 	It("empty list input", func() {
-		Expect(ParsePodNetworkAnnotations("[]", namespace)).To(BeEmpty())
+		Expect(annotations.ParsePodNetworkAnnotations("[]", namespace)).To(BeEmpty())
 	})
 
 	It("single network name", func() {
 		const networkName = "net1"
-		Expect(ParsePodNetworkAnnotations(networkName, namespace)).To(ConsistOf(newNetworkSelectionElement(networkName, namespace)))
+		Expect(annotations.ParsePodNetworkAnnotations(networkName, namespace)).To(ConsistOf(newNetworkSelectionElement(networkName, namespace)))
 	})
 
 	It("comma separated list of network names", func() {
@@ -38,7 +39,7 @@ var _ = Describe("Parsing annotations", func() {
 			secondNetworkName = "net321"
 		)
 		Expect(
-			ParsePodNetworkAnnotations(networkSelectionElements(networkName, secondNetworkName), namespace),
+			annotations.ParsePodNetworkAnnotations(networkSelectionElements(networkName, secondNetworkName), namespace),
 		).To(
 			ConsistOf(
 				newNetworkSelectionElement(networkName, namespace),
@@ -51,7 +52,7 @@ var _ = Describe("Parsing annotations", func() {
 			secondNetworkAndInterfaceNamingPair = "net321@eth2"
 		)
 		Expect(
-			ParsePodNetworkAnnotations(
+			annotations.ParsePodNetworkAnnotations(
 				networkSelectionElements(
 					networkAndInterfaceNamingPair,
 					secondNetworkAndInterfaceNamingPair),
@@ -65,7 +66,7 @@ var _ = Describe("Parsing annotations", func() {
 	It("network selection element specified in JSON", func() {
 		const networkSelectionElementsString = "[\n            { \"name\" : \"macvlan-conf-1\" },\n            { \"name\" : \"macvlan-conf-2\", \"interface\": \"ens4\" }\n    ]"
 		Expect(
-			ParsePodNetworkAnnotations(networkSelectionElementsString, namespace),
+			annotations.ParsePodNetworkAnnotations(networkSelectionElementsString, namespace),
 		).To(
 			ConsistOf(
 				newNetworkSelectionElement("macvlan-conf-1", namespace),

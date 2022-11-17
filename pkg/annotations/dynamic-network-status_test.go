@@ -1,4 +1,4 @@
-package annotations
+package annotations_test
 
 import (
 	"encoding/json"
@@ -12,9 +12,15 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/annotations"
 	nadv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	"gopkg.in/k8snetworkplumbingwg/multus-cni.v3/pkg/server/api"
 )
+
+type attachmentInfo struct {
+	ifaceName   string
+	networkName string
+}
 
 var _ = Describe("NetworkStatusFromResponse", func() {
 	const (
@@ -28,9 +34,9 @@ var _ = Describe("NetworkStatusFromResponse", func() {
 
 	DescribeTable("add dynamic interface to network status", func(initialNetStatus []nadv1.NetworkStatus, resultIPs []string, expectedNetworkStatus []nadv1.NetworkStatus) {
 		Expect(
-			AddDynamicIfaceToStatus(
+			annotations.AddDynamicIfaceToStatus(
 				newPod(podName, namespace, initialNetStatus...),
-				*NewAttachmentResult(
+				*annotations.NewAttachmentResult(
 					newNetworkSelectionElementWithIface(networkName, ifaceName, namespace),
 					newResponse(ifaceToAdd, macAddr, resultIPs...),
 				),
@@ -39,7 +45,7 @@ var _ = Describe("NetworkStatusFromResponse", func() {
 	},
 		Entry("initial empty pod", []nadv1.NetworkStatus{}, nil, []nadv1.NetworkStatus{
 			{
-				Name:      NamespacedName(namespace, networkName),
+				Name:      annotations.NamespacedName(namespace, networkName),
 				Interface: ifaceToAdd,
 				Mac:       macAddr,
 				DNS: nadv1.DNS{
@@ -63,7 +69,7 @@ var _ = Describe("NetworkStatusFromResponse", func() {
 					Mac:       "00:00:00:20:10:00",
 				},
 				{
-					Name:      NamespacedName(namespace, networkName),
+					Name:      annotations.NamespacedName(namespace, networkName),
 					Interface: ifaceToAdd,
 					Mac:       macAddr,
 					DNS: nadv1.DNS{
@@ -88,7 +94,7 @@ var _ = Describe("NetworkStatusFromResponse", func() {
 					Mac:       "00:00:00:20:10:00",
 				},
 				{
-					Name:      NamespacedName(namespace, networkName),
+					Name:      annotations.NamespacedName(namespace, networkName),
 					Interface: ifaceToAdd,
 					Mac:       macAddr,
 					IPs:       []string{"10.10.10.10"},
@@ -101,59 +107,112 @@ var _ = Describe("NetworkStatusFromResponse", func() {
 				}},
 		))
 
-	DescribeTable("remove an interface to the current network status", func(initialNetStatus []nadv1.NetworkStatus, networkName string, ifaceToRemove string, expectedNetworkStatus []nadv1.NetworkStatus) {
+	DescribeTable("remove an interface to the current network status", func(initialNetStatus []nadv1.NetworkStatus, expectedNetworkStatus []nadv1.NetworkStatus, ifacesToRemove ...attachmentInfo) {
+		var netsToRemove []nadv1.NetworkSelectionElement
+		for _, ifaceToRemove := range ifacesToRemove {
+			netsToRemove = append(
+				netsToRemove,
+				*newNetworkSelectionElementWithIface(ifaceToRemove.networkName, ifaceToRemove.ifaceName, namespace),
+			)
+		}
 		Expect(
-			DeleteDynamicIfaceFromStatus(
-				newPod(podName, namespace, initialNetStatus...),
-				newNetworkSelectionElementWithIface(networkName, ifaceToRemove, namespace),
-			),
+			annotations.DeleteDynamicIfaceFromStatus(newPod(podName, namespace, initialNetStatus...), netsToRemove...),
 		).To(Equal(expectedNetworkStatus))
 	},
-		Entry("when there aren't any existing interfaces", nil, "net1", "iface1", []nadv1.NetworkStatus{}),
-		Entry("when we remove all the currently existing interfaces", []nadv1.NetworkStatus{
-			{
-				Name:      NamespacedName(namespace, networkName),
-				Interface: "iface1",
-				Mac:       "00:00:00:20:10:00",
-			}}, networkName, "iface1", []nadv1.NetworkStatus{}),
+		Entry("when there aren't any existing interfaces", nil, []nadv1.NetworkStatus{}, attachmentInfo{
+			ifaceName:   "iface1",
+			networkName: "net1",
+		}),
+		Entry(
+			"when we remove all the currently existing interfaces",
+			[]nadv1.NetworkStatus{
+				{
+					Name:      annotations.NamespacedName(namespace, networkName),
+					Interface: "iface1",
+					Mac:       "00:00:00:20:10:00",
+				}},
+			[]nadv1.NetworkStatus{},
+			attachmentInfo{
+				ifaceName:   "iface1",
+				networkName: networkName,
+			},
+		),
 		Entry("when there is *not* a matching interface to remove", []nadv1.NetworkStatus{
 			{
-				Name:      NamespacedName(namespace, networkName),
+				Name:      annotations.NamespacedName(namespace, networkName),
 				Interface: "iface1",
 				Mac:       "00:00:00:20:10:00",
 			}},
-			"net2",
-			"iface1",
 			[]nadv1.NetworkStatus{
 				{
-					Name:      NamespacedName(namespace, networkName),
+					Name:      annotations.NamespacedName(namespace, networkName),
 					Interface: "iface1",
 					Mac:       "00:00:00:20:10:00",
 				},
+			},
+			attachmentInfo{
+				ifaceName:   "iface1",
+				networkName: "net2",
 			},
 		),
 		Entry("when we remove one of the existing interfaces", []nadv1.NetworkStatus{
 			{
-				Name:      NamespacedName(namespace, networkName),
+				Name:      annotations.NamespacedName(namespace, networkName),
 				Interface: "iface1",
 				Mac:       "00:00:00:20:10:00",
 			},
 			{
-				Name:      NamespacedName(namespace, "net2"),
+				Name:      annotations.NamespacedName(namespace, "net2"),
 				Interface: "iface2",
 				Mac:       "aa:bb:cc:20:10:00",
 			},
 		},
-			"net2",
-			"iface2",
 			[]nadv1.NetworkStatus{
 				{
-					Name:      NamespacedName(namespace, networkName),
+					Name:      annotations.NamespacedName(namespace, networkName),
 					Interface: "iface1",
 					Mac:       "00:00:00:20:10:00",
 				},
 			},
-		))
+			attachmentInfo{
+				ifaceName:   "iface2",
+				networkName: "net2",
+			},
+		),
+		Entry(
+			"when we remove multiple interfaces at once",
+			[]nadv1.NetworkStatus{
+				{
+					Name:      annotations.NamespacedName(namespace, networkName),
+					Interface: "iface1",
+					Mac:       "00:00:00:20:10:00",
+				},
+				{
+					Name:      annotations.NamespacedName(namespace, "net2"),
+					Interface: "iface2",
+					Mac:       "aa:bb:cc:20:10:00",
+				},
+				{
+					Name:      annotations.NamespacedName(namespace, "net3"),
+					Interface: "iface3",
+					Mac:       "aa:bb:cc:11:11:11",
+				},
+			},
+			[]nadv1.NetworkStatus{
+				{
+					Name:      annotations.NamespacedName(namespace, "net3"),
+					Interface: "iface3",
+					Mac:       "aa:bb:cc:11:11:11",
+				},
+			},
+			attachmentInfo{
+				ifaceName:   "iface1",
+				networkName: networkName,
+			},
+			attachmentInfo{
+				ifaceName:   "iface2",
+				networkName: "net2",
+			}))
 })
 
 func newPod(podName string, namespace string, netStatus ...nadv1.NetworkStatus) *corev1.Pod {
