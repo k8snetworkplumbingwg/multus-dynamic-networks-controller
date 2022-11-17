@@ -8,45 +8,49 @@ import (
 
 	nettypes "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	nadutils "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/utils"
-	multusapi "gopkg.in/k8snetworkplumbingwg/multus-cni.v3/pkg/server/api"
 )
 
-func AddDynamicIfaceToStatus(currentPod *corev1.Pod, networkSelectionElement *nettypes.NetworkSelectionElement, response *multusapi.Response) ([]nettypes.NetworkStatus, error) {
+func AddDynamicIfaceToStatus(currentPod *corev1.Pod, attachmentResults ...AttachmentResult) ([]nettypes.NetworkStatus, error) {
 	currentIfaceStatus, err := podDynamicNetworkStatus(currentPod)
 	if err != nil {
 		return nil, err
 	}
 
-	if response != nil && response.Result != nil {
-		newIfaceStatus, err := nadutils.CreateNetworkStatus(
-			response.Result,
-			NamespacedName(networkSelectionElement.Namespace, networkSelectionElement.Name),
-			false,
-			nil,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create NetworkStatus from the response: %v", err)
+	for _, attachmentResult := range attachmentResults {
+		response := attachmentResult.result
+		networkSelectionElement := attachmentResult.attachment
+		if response != nil && response.Result != nil {
+			newIfaceStatus, err := nadutils.CreateNetworkStatus(
+				response.Result,
+				NamespacedName(networkSelectionElement.Namespace, networkSelectionElement.Name),
+				false,
+				nil,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create NetworkStatus from the response: %v", err)
+			}
+			currentIfaceStatus = append(currentIfaceStatus, *newIfaceStatus)
 		}
-
-		return append(currentIfaceStatus, *newIfaceStatus), nil
 	}
-	return nil, fmt.Errorf("got an empty response from multus: %+v", response)
+	return currentIfaceStatus, nil
 }
 
-func DeleteDynamicIfaceFromStatus(currentPod *corev1.Pod, networkSelectionElement *nettypes.NetworkSelectionElement) ([]nettypes.NetworkStatus, error) {
+func DeleteDynamicIfaceFromStatus(currentPod *corev1.Pod, networkSelectionElements ...*nettypes.NetworkSelectionElement) ([]nettypes.NetworkStatus, error) {
 	currentIfaceStatus, err := podDynamicNetworkStatus(currentPod)
 	if err != nil {
 		return nil, err
 	}
 
-	netName := NamespacedName(networkSelectionElement.Namespace, networkSelectionElement.Name)
 	var newIfaceStatus []nettypes.NetworkStatus
-	newIfaceStatus = make([]nettypes.NetworkStatus, 0)
-	for i := range currentIfaceStatus {
-		if currentIfaceStatus[i].Name == netName && currentIfaceStatus[i].Interface == networkSelectionElement.InterfaceRequest {
-			continue
+	for _, networkSelectionElement := range networkSelectionElements {
+		netName := NamespacedName(networkSelectionElement.Namespace, networkSelectionElement.Name)
+		newIfaceStatus = make([]nettypes.NetworkStatus, 0)
+		for i := range currentIfaceStatus {
+			if currentIfaceStatus[i].Name == netName && currentIfaceStatus[i].Interface == networkSelectionElement.InterfaceRequest {
+				continue
+			}
+			newIfaceStatus = append(newIfaceStatus, currentIfaceStatus[i])
 		}
-		newIfaceStatus = append(newIfaceStatus, currentIfaceStatus[i])
 	}
 	return newIfaceStatus, nil
 }
