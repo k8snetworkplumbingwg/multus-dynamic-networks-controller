@@ -107,8 +107,8 @@ var _ = Describe("Dynamic Attachment controller", func() {
 						eventRecorder,
 						fakecri.NewFakeRuntime(*pod),
 						fakemultusclient.NewFakeClient(
-							networkConfig(multuscni.CmdAdd, "net1", networkName, macAddr),
-							networkConfig(multuscni.CmdDel, "net0", "", "")),
+							networkConfig(multuscni.CmdAdd, "net1", macAddr),
+							networkConfig(multuscni.CmdDel, "net0", "")),
 					)).NotTo(BeNil())
 				Expect(func() []nad.NetworkStatus {
 					updatedPod, err := k8sClient.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
@@ -150,6 +150,22 @@ var _ = Describe("Dynamic Attachment controller", func() {
 					)
 					Eventually(<-eventRecorder.Events).Should(Equal(expectedEventPayload))
 				})
+
+				It("the pod network-status is updated with the new network attachment", func() {
+					Eventually(func() ([]nad.NetworkStatus, error) {
+						updatedPod, err := k8sClient.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+						if err != nil {
+							return nil, err
+						}
+						status, err := networkStatus(updatedPod.Annotations)
+						if err != nil {
+							return nil, err
+						}
+						return status, nil
+					}).Should(ConsistOf(
+						ifaceStatus(namespace, networkName, "net0", ""),
+						ifaceStatus(namespace, networkToAdd, "net1", macAddr)))
+				})
 			})
 
 			When("an attachment is removed from the pod's network annotations", func() {
@@ -171,12 +187,26 @@ var _ = Describe("Dynamic Attachment controller", func() {
 					)
 					Eventually(<-eventRecorder.Events).Should(Equal(expectedEventPayload))
 				})
+
+				It("the pod network-status no longer features the removed network", func() {
+					Eventually(func() ([]nad.NetworkStatus, error) {
+						updatedPod, err := k8sClient.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+						if err != nil {
+							return nil, err
+						}
+						status, err := networkStatus(updatedPod.Annotations)
+						if err != nil {
+							return nil, err
+						}
+						return status, nil
+					}).Should(BeEmpty())
+				})
 			})
 		})
 	})
 })
 
-func networkConfig(cmd, ifaceName, networkName, mac string) fakemultusclient.NetworkConfig {
+func networkConfig(cmd, ifaceName, mac string) fakemultusclient.NetworkConfig {
 	const cniVersion = "1.0.0"
 	return fakemultusclient.NetworkConfig{
 		Cmd:       cmd,
@@ -185,7 +215,7 @@ func networkConfig(cmd, ifaceName, networkName, mac string) fakemultusclient.Net
 			Result: &cni100.Result{
 				CNIVersion: cniVersion,
 				Interfaces: []*cni100.Interface{
-					{Name: networkName, Mac: mac},
+					{Name: ifaceName, Mac: mac, Sandbox: "asd"},
 				},
 			}},
 	}
@@ -405,4 +435,12 @@ func dummyMultusConfig() string {
       ]
     }
 }`
+}
+
+func ifaceStatus(namespace, networkName, ifaceName, macAddress string) nad.NetworkStatus {
+	return nad.NetworkStatus{
+		Name:      fmt.Sprintf("%s/%s", namespace, networkName),
+		Interface: ifaceName,
+		Mac:       macAddress,
+	}
 }
