@@ -30,8 +30,10 @@ var _ = Describe("NetworkStatusFromResponse", func() {
 		Expect(
 			AddDynamicIfaceToStatus(
 				newPod(podName, namespace, initialNetStatus...),
-				newNetworkSelectionElementWithIface(networkName, ifaceName, namespace),
-				newResponse(ifaceToAdd, macAddr, resultIPs...),
+				*NewAttachmentResult(
+					newNetworkSelectionElementWithIface(networkName, ifaceName, namespace),
+					newResponse(ifaceToAdd, macAddr, resultIPs...),
+				),
 			),
 		).To(Equal(expectedNetworkStatus))
 	},

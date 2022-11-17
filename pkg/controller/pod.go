@@ -275,7 +275,10 @@ func (pnc *PodNetworksController) addNetworks(dynamicAttachmentRequest *DynamicA
 		}
 		klog.Infof("response: %v", *response.Result)
 
-		newIfaceStatus, err := annotations.AddDynamicIfaceToStatus(pod, netToAdd, response)
+		newIfaceStatus, err := annotations.AddDynamicIfaceToStatus(
+			pod,
+			*annotations.NewAttachmentResult(netToAdd, response),
+		)
 		if err != nil {
 			return fmt.Errorf("failed to compute the updated network status: %v", err)
 		}
