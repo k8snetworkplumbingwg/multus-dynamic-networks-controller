@@ -18,10 +18,12 @@ func FilterPodsNetworkStatus(clients *client.E2EClient, namespace, podName strin
 	if err != nil {
 		return nil
 	}
+
+	podsCurrentNetworks := PodDynamicNetworks(&pods.Items[0])
 	var podNetworkStatus []nettypes.NetworkStatus
-	for _, netStatus := range PodDynamicNetworks(&pods.Items[0]) {
-		if p(netStatus) {
-			podNetworkStatus = append(podNetworkStatus, netStatus)
+	for i := range podsCurrentNetworks {
+		if p(podsCurrentNetworks[i]) {
+			podNetworkStatus = append(podNetworkStatus, podsCurrentNetworks[i])
 		}
 	}
 	return podNetworkStatus
