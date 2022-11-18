@@ -163,6 +163,44 @@ func (c *E2EClient) ListPods(namespace, selector string) (*corev1.PodList, error
 	return podList, nil
 }
 
+func (c *E2EClient) NetworkStatus(pod *corev1.Pod) []nettypes.NetworkStatus {
+	netStatusAnnot, wasFound := pod.GetAnnotations()[nettypes.NetworkStatusAnnot]
+	if !wasFound {
+		return nil
+	}
+
+	var networkStatus []nettypes.NetworkStatus
+	if err := json.Unmarshal([]byte(netStatusAnnot), &networkStatus); err != nil {
+		return nil
+	}
+	return networkStatus
+}
+
+func (c *E2EClient) SetInterfaceNamesOnPodsNetworkSelectionElements(pod *corev1.Pod) error {
+	networkSelectionElements, err := extractPodNetworkSelectionElements(pod)
+	if err != nil {
+		return nil
+	}
+
+	var updatedNetSelectionElements []nettypes.NetworkSelectionElement
+	for i := range networkSelectionElements {
+		if networkSelectionElements[i].InterfaceRequest == "" {
+			networkSelectionElements[i].InterfaceRequest = fmt.Sprintf("net%d", i+1)
+		}
+		updatedNetSelectionElements = append(
+			updatedNetSelectionElements, *networkSelectionElements[i])
+	}
+
+	newSelectionElements, err := json.Marshal(updatedNetSelectionElements)
+	if err != nil {
+		return err
+	}
+	pod.GetAnnotations()[nettypes.NetworkAttachmentAnnot] = string(newSelectionElements)
+
+	_, err = c.k8sClient.CoreV1().Pods(pod.GetNamespace()).Update(context.TODO(), pod, metav1.UpdateOptions{})
+	return err
+}
+
 func isPodRunning(cs kubernetes.Interface, podName, namespace string) wait.ConditionFunc {
 	return func() (bool, error) {
 		pod, err := cs.CoreV1().Pods(namespace).Get(context.Background(), podName, metav1.GetOptions{})

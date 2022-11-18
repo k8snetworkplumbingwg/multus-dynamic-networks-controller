@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -209,6 +210,84 @@ var _ = Describe("Multus dynamic networks controller", func() {
 							Interface: ifaceToAdd,
 							Mac:       desiredMACAddr,
 						}))
+			})
+		})
+
+		Context("a provisioned pod whose network selection elements do not feature the inteface name", func() {
+			const (
+				ifaceToAdd = "ens58"
+				macAddress = "02:03:04:05:06:07"
+				timeout    = 2 * time.Second
+			)
+
+			var (
+				pod                      *corev1.Pod
+				initialPodsNetworkStatus []nettypes.NetworkStatus
+			)
+
+			runtimePodNetworkStatus := func() []nettypes.NetworkStatus {
+				return status.FilterPodsNetworkStatus(
+					clients,
+					namespace,
+					podName,
+					func(networkStatus nettypes.NetworkStatus) bool {
+						return true
+					},
+				)
+			}
+
+			BeforeEach(func() {
+				var err error
+				pod, err = clients.ProvisionPod(
+					podName,
+					namespace,
+					podAppLabel(podName),
+					PodNetworkSelectionElements(
+						dynamicNetworkInfo{
+							namespace:   namespace,
+							networkName: networkName,
+						}),
+				)
+				Expect(err).NotTo(HaveOccurred())
+
+				initialPodsNetworkStatus = clients.NetworkStatus(pod)
+				const defaultNetworkPlusInitialAttachment = 2
+				Expect(initialPodsNetworkStatus).To(HaveLen(defaultNetworkPlusInitialAttachment))
+
+				Expect(clients.AddNetworkToPod(pod, &nettypes.NetworkSelectionElement{
+					Name:             networkName,
+					Namespace:        namespace,
+					InterfaceRequest: ifaceToAdd,
+					MacRequest:       macAddress,
+				})).To(Succeed())
+
+				By("the attachment is ignored since we cannot reconcile without knowing the interface name of all attachments")
+				Consistently(runtimePodNetworkStatus, timeout).Should(ConsistOf(initialPodsNetworkStatus))
+			})
+
+			AfterEach(func() {
+				Expect(clients.DeletePod(pod)).To(Succeed())
+			})
+
+			runningPod := func() *corev1.Pod {
+				pods, err := clients.ListPods(namespace, fmt.Sprintf("app=%s", podName))
+				ExpectWithOffset(1, err).NotTo(HaveOccurred())
+				ExpectWithOffset(1, pods.Items).NotTo(BeEmpty())
+				return &pods.Items[0]
+			}
+
+			It("manages to add a new interface to a running pod once the desired state features the interface names", func() {
+				By("setting the interface name in the existing attachment")
+				Expect(clients.SetInterfaceNamesOnPodsNetworkSelectionElements(runningPod())).To(Succeed())
+
+				Eventually(runtimePodNetworkStatus, timeout).Should(
+					ConsistOf(
+						append(initialPodsNetworkStatus, nettypes.NetworkStatus{
+							Name:      namespacedName(namespace, networkName),
+							Interface: ifaceToAdd,
+							Mac:       macAddress,
+						}),
+					))
 			})
 		})
 	})
