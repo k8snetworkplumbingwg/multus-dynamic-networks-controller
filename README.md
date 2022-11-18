@@ -7,6 +7,11 @@ listening to pod's network selection elements (i.e. the pod `k8s.v1.cni.cncf.io/
 change (adding / removing network selection elements), it will invoke the corresponding delegate effectively adding
 (or removing) a network interface to a running pod.
 
+The controller provides a reconciliation loop between the desired state (the network selection elements), and the
+current state (the network status); in order for it to work, all the attachments featured in the desired state **must**
+feature interface names. If they don't, the user should patch up the pod's network selection elements, adding it the
+name of the interface for each respective attachment.
+
 Please refer to the
 [multus-cni docs](https://github.com/k8snetworkplumbingwg/multus-cni/blob/master/docs/quickstart.md#creating-a-pod-that-attaches-an-additional-interface)
 for more information on how additional interfaces are added to a pod.
@@ -164,5 +169,4 @@ e1db8da3c6267b3c2a5aca72ef8dd6a10b0ec9fd
 ```
 
 ## Known limitations
-- the pod controller is not [level driven](https://stackoverflow.com/questions/1966863/level-vs-edge-trigger-network-event-mechanisms). This is tracked in this [RFE](https://github.com/maiqueb/multus-dynamic-networks-controller/issues/48).
 - plug / unplug interfaces to networks requiring device-plugin interaction. We must investigate this further; an RFE **may** be opened once we have the required data.
