@@ -212,7 +212,35 @@ var _ = Describe("NetworkStatusFromResponse", func() {
 			attachmentInfo{
 				ifaceName:   "iface2",
 				networkName: "net2",
-			}))
+			}),
+		Entry(
+			"the default interface is reported when we delete another interface",
+			[]nadv1.NetworkStatus{
+				{
+					Name:      annotations.NamespacedName(namespace, networkName),
+					Interface: "iface1",
+					Mac:       "00:00:00:20:10:00",
+					Default:   true,
+				},
+				{
+					Name:      annotations.NamespacedName(namespace, "net2"),
+					Interface: "iface2",
+					Mac:       "aa:bb:cc:20:10:00",
+				},
+			},
+			[]nadv1.NetworkStatus{
+				{
+					Name:      annotations.NamespacedName(namespace, networkName),
+					Interface: "iface1",
+					Mac:       "00:00:00:20:10:00",
+					Default:   true,
+				},
+			},
+			attachmentInfo{
+				ifaceName:   "iface2",
+				networkName: "net2",
+			},
+		))
 })
 
 func newPod(podName string, namespace string, netStatus ...nadv1.NetworkStatus) *corev1.Pod {

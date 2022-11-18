@@ -154,7 +154,7 @@ func (pnc *PodNetworksController) processNextWorkItem() bool {
 	}
 
 	indexedNetworkSelectionElements := annotations.IndexPodNetworkSelectionElements(pod)
-	indexedNetworkStatus := annotations.IndexNetworkStatus(pod)
+	indexedNetworkStatus := annotations.IndexNetworkStatusIgnoringDefaultNetwork(pod)
 
 	netnsPath, err := pnc.netnsPath(pod)
 	if err != nil {
