@@ -243,6 +243,14 @@ func (pnc *PodNetworksController) handlePodUpdate(oldObj interface{}, newObj int
 	oldPod := oldObj.(*corev1.Pod)
 	newPod := newObj.(*corev1.Pod)
 
+	if newPod.Spec.HostNetwork {
+		klog.Warningf(
+			"rejecting to add interfaces for host networked pod: %s",
+			annotations.NamespacedName(newPod.GetNamespace(), newPod.GetName()),
+		)
+		pnc.Eventf(newPod, corev1.EventTypeWarning, "InterfaceAddRejected", rejectInterfaceAddEventFormat(newPod))
+		return
+	}
 	if !didNetworkSelectionElementsChange(oldPod, newPod) {
 		return
 	}
@@ -410,6 +418,13 @@ func removeIfaceEventFormat(pod *corev1.Pod, network *nadv1.NetworkSelectionElem
 		annotations.NamespacedName(pod.GetNamespace(), pod.GetName()),
 		network.InterfaceRequest,
 		network.Name,
+	)
+}
+
+func rejectInterfaceAddEventFormat(pod *corev1.Pod) string {
+	return fmt.Sprintf(
+		"pod [%s]: will not add interface to host networked pod",
+		annotations.NamespacedName(pod.GetNamespace(), pod.GetName()),
 	)
 }
 

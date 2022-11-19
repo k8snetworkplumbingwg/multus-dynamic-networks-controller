@@ -78,6 +78,7 @@ var _ = Describe("Dynamic Attachment controller", func() {
 				pod           *corev1.Pod
 				networkToAdd  string
 				stopChannel   chan struct{}
+				nadClient     nadclient.Interface
 			)
 
 			networkStatusNames := func(statuses []nad.NetworkStatus) []string {
@@ -90,15 +91,24 @@ var _ = Describe("Dynamic Attachment controller", func() {
 
 			BeforeEach(func() {
 				pod = podSpec(podName, namespace, networkName)
-				k8sClient = fake.NewSimpleClientset(pod)
 				networkToAdd = fmt.Sprintf("%s-2", networkName)
-				nadClient, err := newFakeNetAttachDefClient(
+
+				var err error
+				nadClient, err = newFakeNetAttachDefClient(
 					netAttachDef(networkName, namespace, dummyNetSpec(networkName, cniVersion)),
 					netAttachDef(networkToAdd, namespace, dummyNetSpec(networkToAdd, cniVersion)))
 				Expect(err).NotTo(HaveOccurred())
 				stopChannel = make(chan struct{})
 				const maxEvents = 5
 				eventRecorder = record.NewFakeRecorder(maxEvents)
+			})
+
+			AfterEach(func() {
+				close(stopChannel)
+			})
+
+			JustBeforeEach(func() {
+				k8sClient = fake.NewSimpleClientset(pod)
 				Expect(
 					newDummyPodController(
 						k8sClient,
@@ -127,12 +137,8 @@ var _ = Describe("Dynamic Attachment controller", func() {
 				)
 			})
 
-			AfterEach(func() {
-				close(stopChannel)
-			})
-
 			When("an attachment is added to the pod's network annotations", func() {
-				BeforeEach(func() {
+				JustBeforeEach(func() {
 					var err error
 					_, err = k8sClient.CoreV1().Pods(namespace).UpdateStatus(
 						context.TODO(),
@@ -169,7 +175,7 @@ var _ = Describe("Dynamic Attachment controller", func() {
 			})
 
 			When("an attachment is removed from the pod's network annotations", func() {
-				BeforeEach(func() {
+				JustBeforeEach(func() {
 					var err error
 					_, err = k8sClient.CoreV1().Pods(namespace).UpdateStatus(
 						context.TODO(),
@@ -200,6 +206,43 @@ var _ = Describe("Dynamic Attachment controller", func() {
 						}
 						return status, nil
 					}).Should(BeEmpty())
+				})
+			})
+
+			When("an attachment is added to a host networked pod", func() {
+				BeforeEach(func() {
+					pod = hostNetworkedPodSpec(podName, namespace, networkName)
+				})
+
+				JustAfterEach(func() {
+					_, err := k8sClient.CoreV1().Pods(namespace).UpdateStatus(
+						context.TODO(),
+						updatePodSpec(pod, networkName, networkToAdd),
+						metav1.UpdateOptions{})
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("the attachment request is ignored", func() {
+					Eventually(func() ([]nad.NetworkStatus, error) {
+						updatedPod, err := k8sClient.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+						if err != nil {
+							return nil, err
+						}
+						status, err := annotations.PodDynamicNetworkStatus(updatedPod)
+						if err != nil {
+							return nil, err
+						}
+						return status, nil
+					}).Should(ConsistOf(
+						ifaceStatus(namespace, networkName, "net0", "")))
+				})
+
+				It("throws an event indicating the interface add operation is rejected", func() {
+					expectedEventPayload := fmt.Sprintf(
+						"Warning InterfaceAddRejected pod [%s]: will not add interface to host networked pod",
+						annotations.NamespacedName(namespace, podName),
+					)
+					Eventually(<-eventRecorder.Events).Should(Equal(expectedEventPayload))
 				})
 			})
 		})
@@ -443,4 +486,10 @@ func ifaceStatus(namespace, networkName, ifaceName, macAddress string) nad.Netwo
 		Interface: ifaceName,
 		Mac:       macAddress,
 	}
+}
+
+func hostNetworkedPodSpec(name string, namespace string, networks ...string) *corev1.Pod {
+	pod := podSpec(name, namespace, networks...)
+	pod.Spec.HostNetwork = true
+	return pod
 }
