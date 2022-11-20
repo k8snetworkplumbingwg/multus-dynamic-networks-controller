@@ -7,6 +7,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	v1coreinformerfactory "k8s.io/client-go/informers"
@@ -119,6 +120,13 @@ func (pnc *PodNetworksController) Start(stopChan <-chan struct{}) {
 
 	if ok := cache.WaitForCacheSync(stopChan, pnc.arePodsSynched, pnc.areNetAttachDefsSynched); !ok {
 		klog.Infof("failed waiting for caches to sync")
+		return
+	}
+
+	// ensure that we didn't miss any updates before the cache sync completion
+	if err := pnc.reconcileOnStartup(); err != nil {
+		klog.Infof("failed to reconcile pods on startup: %v", err)
+		return
 	}
 
 	go wait.Until(pnc.worker, time.Second, stopChan)
@@ -129,6 +137,39 @@ func (pnc *PodNetworksController) Start(stopChan <-chan struct{}) {
 func (pnc *PodNetworksController) worker() {
 	for pnc.processNextWorkItem() {
 	}
+}
+
+func (pnc *PodNetworksController) ignoreHostNetworkedPods(pod *corev1.Pod) bool {
+	// since there is no such "not has" relation in a field selector,
+	// filter out pods that are of no concern to the controller here
+	if pod.Spec.HostNetwork {
+		_, haveNetworkAttachments := pod.GetAnnotations()[nadv1.NetworkAttachmentAnnot]
+		namespacedName := annotations.NamespacedName(pod.GetNamespace(), pod.GetName())
+		if haveNetworkAttachments {
+			klog.Warningf("rejecting to add interfaces for host networked pod: %s", namespacedName)
+			pnc.Eventf(pod, corev1.EventTypeWarning, "InterfaceAddRejected", rejectInterfaceAddEventFormat(pod))
+		} else {
+			klog.V(logging.Debug).Infof("host networked pod [%s] got filtered out", namespacedName)
+		}
+		return true
+	}
+	return false
+}
+
+func (pnc *PodNetworksController) reconcileOnStartup() error {
+	pods, err := pnc.podsLister.List(labels.Everything())
+	if err != nil {
+		return fmt.Errorf("failed to list pods on current node: %v", err)
+	}
+	for _, pod := range pods {
+		if pnc.ignoreHostNetworkedPods(pod) {
+			continue
+		}
+		namespacedName := annotations.NamespacedName(pod.GetNamespace(), pod.GetName())
+		klog.V(logging.Debug).Infof("pod [%s] added to reconcile on startup", namespacedName)
+		pnc.workqueue.Add(&namespacedName)
+	}
+	return nil
 }
 
 func (pnc *PodNetworksController) processNextWorkItem() bool {
@@ -243,12 +284,7 @@ func (pnc *PodNetworksController) handlePodUpdate(oldObj interface{}, newObj int
 	oldPod := oldObj.(*corev1.Pod)
 	newPod := newObj.(*corev1.Pod)
 
-	if newPod.Spec.HostNetwork {
-		klog.Warningf(
-			"rejecting to add interfaces for host networked pod: %s",
-			annotations.NamespacedName(newPod.GetNamespace(), newPod.GetName()),
-		)
-		pnc.Eventf(newPod, corev1.EventTypeWarning, "InterfaceAddRejected", rejectInterfaceAddEventFormat(newPod))
+	if pnc.ignoreHostNetworkedPods(newPod) {
 		return
 	}
 	if !didNetworkSelectionElementsChange(oldPod, newPod) {
