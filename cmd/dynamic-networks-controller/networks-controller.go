@@ -121,10 +121,18 @@ func listenOnCoLocatedNode() v1coreinformerfactory.SharedInformerOption {
 	return v1coreinformerfactory.WithTweakListOptions(
 		func(options *v1.ListOptions) {
 			const (
-				filterKey           = "spec.nodeName"
 				nodeNameEnvVariable = "NODE_NAME"
 			)
-			options.FieldSelector = fields.OneTermEqualSelector(filterKey, os.Getenv(nodeNameEnvVariable)).String()
+			// The selector for the pods that this controller instance will watch/reconcile
+			selectorSet := fields.Set{
+				// select pods scheduled only on the node on which this controller instance is running
+				"spec.nodeName": os.Getenv(nodeNameEnvVariable),
+				// select pods with a phase Running to avoid interfering with the cni-plugin works
+				// when pods got created/deleted
+				// see https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-phase
+				"status.phase": string(corev1.PodRunning),
+			}
+			options.FieldSelector = fields.SelectorFromSet(selectorSet).String()
 		})
 }
 
