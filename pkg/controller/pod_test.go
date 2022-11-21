@@ -9,7 +9,7 @@ import (
 	"path"
 	"testing"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	cni100 "github.com/containernetworking/cni/pkg/types/100"
@@ -202,9 +202,71 @@ var _ = Describe("Dynamic Attachment controller", func() {
 					}).Should(BeEmpty())
 				})
 			})
+
+			When("an update to an existing attachment occurs", func() {
+				DescribeTable("nothing happens", func(updatedNetworkSelectionElement nad.NetworkSelectionElement) {
+					Expect(updatePodNetworkSelectionElements(k8sClient, pod, updatedNetworkSelectionElement)).To(Succeed())
+
+					_, err := k8sClient.CoreV1().Pods(namespace).UpdateStatus(
+						context.TODO(),
+						pod,
+						metav1.UpdateOptions{})
+					Expect(err).NotTo(HaveOccurred())
+
+					Consistently(func() ([]nad.NetworkStatus, error) {
+						updatedPod, err := k8sClient.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+						if err != nil {
+							return nil, err
+						}
+						status, err := networkStatus(updatedPod.Annotations)
+						if err != nil {
+							return nil, err
+						}
+						return status, nil
+					}).Should(ConsistOf(ifaceStatus(namespace, networkName, "net0", "")))
+				},
+					Entry("when the MAC address is updated", nad.NetworkSelectionElement{
+						Name:             networkName,
+						Namespace:        namespace,
+						InterfaceRequest: "net0",
+						MacRequest:       "07:06:05:04:03:02",
+					}),
+					XEntry("when the iface name is updated", nad.NetworkSelectionElement{
+						Name:             networkName,
+						Namespace:        namespace,
+						InterfaceRequest: "newiface",
+					}, Label("issue#66")),
+				)
+			})
 		})
 	})
 })
+
+func updatePodNetworkSelectionElements(k8sClient k8sclient.Interface, pod *corev1.Pod, newAttachments ...nad.NetworkSelectionElement) error {
+	currentPodAttachments, err := networkSelectionElements(pod.Annotations, pod.GetNamespace())
+	if err != nil {
+		return err
+	} else if len(currentPodAttachments) == 0 {
+		return fmt.Errorf("no attachments ")
+	}
+
+	for i := range currentPodAttachments[1:] {
+		newAttachments = append(newAttachments, *currentPodAttachments[i])
+	}
+
+	serializedAttachments, err := json.Marshal(newAttachments)
+	if err != nil {
+		return err
+	}
+
+	pod.Annotations[nad.NetworkAttachmentAnnot] = string(serializedAttachments)
+	_, err = k8sClient.CoreV1().Pods(pod.GetNamespace()).UpdateStatus(
+		context.TODO(),
+		pod,
+		metav1.UpdateOptions{})
+
+	return err
+}
 
 func networkConfig(cmd, ifaceName, mac string) fakemultusclient.NetworkConfig {
 	const cniVersion = "1.0.0"
