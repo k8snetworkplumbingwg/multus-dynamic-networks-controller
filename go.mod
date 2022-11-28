@@ -3,7 +3,7 @@ module github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller
 go 1.18
 
 require (
-	github.com/containerd/containerd v1.6.9
+	github.com/containerd/containerd v1.6.10
 	github.com/containernetworking/cni v1.1.2
 	github.com/gogo/protobuf v1.3.2
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.3.0
@@ -22,7 +22,7 @@ require (
 
 require (
 	github.com/Microsoft/go-winio v0.5.2 // indirect
-	github.com/Microsoft/hcsshim v0.9.4 // indirect
+	github.com/Microsoft/hcsshim v0.9.5 // indirect
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/containerd/cgroups v1.0.3 // indirect
