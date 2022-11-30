@@ -6,3 +6,5 @@ updates:
       interval: "weekly"
     assignees:
       - maiqueb
+    ignore:
+      - dependency-name: "k8s.io/*"
