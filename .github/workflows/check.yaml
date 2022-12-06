@@ -31,8 +31,8 @@ jobs:
     - name: Linters
       uses: golangci/golangci-lint-action@v3
       with:
-        version: v1.47.3
-        args: --timeout 3m --verbose cmd/... pkg/...
+        version: v1.50.1
+        args: --timeout 3m --verbose cmd/... pkg/... e2e/...
 
     - name: Test
       run: make test

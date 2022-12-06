@@ -76,8 +76,8 @@ func (c *E2EClient) DeleteNamespace(name string) error {
 	return nil
 }
 
-func (c *E2EClient) ProvisionPod(podName string, namespace string, label, annotations map[string]string) (*corev1.Pod, error) {
-	pod := PodObject(podName, namespace, label, annotations)
+func (c *E2EClient) ProvisionPod(podName string, namespace string, label, podAnnotations map[string]string) (*corev1.Pod, error) {
+	pod := PodObject(podName, namespace, label, podAnnotations)
 	pod, err := c.k8sClient.CoreV1().Pods(pod.Namespace).Create(context.Background(), pod, metav1.CreateOptions{})
 	if err != nil {
 		return nil, err
@@ -144,8 +144,9 @@ func (c *E2EClient) WaitForPodBySelector(namespace, selector string, timeout tim
 		return nil
 	}
 
-	for _, pod := range podList.Items {
-		if err := c.WaitForPodReady(namespace, pod.Name, timeout); err != nil {
+	pods := podList.Items
+	for i := range pods {
+		if err := c.WaitForPodReady(namespace, pods[i].Name, timeout); err != nil {
 			return err
 		}
 	}
@@ -234,9 +235,9 @@ func isPodGone(cs kubernetes.Interface, podName, namespace string) wait.Conditio
 	}
 }
 
-func PodObject(podName string, namespace string, label, annotations map[string]string) *corev1.Pod {
+func PodObject(podName string, namespace string, label, podAnnotations map[string]string) *corev1.Pod {
 	return &corev1.Pod{
-		ObjectMeta: podMeta(podName, namespace, label, annotations),
+		ObjectMeta: podMeta(podName, namespace, label, podAnnotations),
 		Spec:       podSpec("samplepod"),
 	}
 }
@@ -258,31 +259,31 @@ func containerCmd() []string {
 	return []string{"/bin/ash", "-c", "trap : TERM INT; sleep infinity & wait"}
 }
 
-func podMeta(podName string, namespace string, label map[string]string, annotations map[string]string) metav1.ObjectMeta {
+func podMeta(podName string, namespace string, label map[string]string, podAnnotations map[string]string) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
 		Name:        podName,
 		Namespace:   namespace,
 		Labels:      label,
-		Annotations: annotations,
+		Annotations: podAnnotations,
 	}
 }
 
 func dynamicNetworksAnnotation(pod *corev1.Pod, newIfaceConfigs ...*nettypes.NetworkSelectionElement) string {
-	currentNetworkSelectionElements, err := extractPodNetworkSelectionElements(pod)
+	networkSelectionElements, err := extractPodNetworkSelectionElements(pod)
 	if err != nil {
 		return ""
 	}
 
-	updatedNetworkSelectionElements := append(
-		currentNetworkSelectionElements,
+	networkSelectionElements = append(
+		networkSelectionElements,
 		newIfaceConfigs...,
 	)
-	newSelectionElements, err := json.Marshal(updatedNetworkSelectionElements)
+	updatedNetworkSelectionElements, err := json.Marshal(networkSelectionElements)
 	if err != nil {
 		return ""
 	}
 
-	return string(newSelectionElements)
+	return string(updatedNetworkSelectionElements)
 }
 
 func removeFromDynamicNetworksAnnotation(pod *corev1.Pod, networkName string, netNamespace string, ifaceName string) string {
