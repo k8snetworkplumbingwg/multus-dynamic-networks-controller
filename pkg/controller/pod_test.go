@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"testing"
@@ -52,7 +51,7 @@ var _ = Describe("Dynamic Attachment controller", func() {
 			)
 
 			var err error
-			cniConfigDir, err = ioutil.TempDir("", "multus-config")
+			cniConfigDir, err = os.MkdirTemp("", "multus-config")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(os.MkdirAll(cniConfigDir, configFilePermissions)).To(Succeed())
 			Expect(os.WriteFile(
