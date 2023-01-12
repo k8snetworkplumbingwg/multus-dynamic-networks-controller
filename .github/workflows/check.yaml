@@ -23,7 +23,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v3
       with:
-        go-version: 1.18
+        go-version: 1.19
 
     - name: Build
       run: time make build
@@ -31,7 +31,7 @@ jobs:
     - name: Linters
       uses: golangci/golangci-lint-action@v3
       with:
-        version: v1.47.3
+        version: v1.48.0
         args: --timeout 3m --verbose cmd/... pkg/...
 
     - name: Test
