@@ -3,7 +3,7 @@ module github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller
 go 1.19
 
 require (
-	github.com/containerd/containerd v1.6.14
+	github.com/containerd/containerd v1.6.16
 	github.com/containernetworking/cni v1.1.2
 	github.com/gogo/protobuf v1.3.2
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.4.0
