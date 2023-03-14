@@ -213,7 +213,7 @@ var _ = Describe("Multus dynamic networks controller", func() {
 			})
 		})
 
-		Context("a provisioned pod whose network selection elements do not feature the inteface name", func() {
+		Context("a provisioned pod whose network selection elements do not feature the interface name", func() {
 			const (
 				ifaceToAdd = "ens58"
 				macAddress = "02:03:04:05:06:07"
