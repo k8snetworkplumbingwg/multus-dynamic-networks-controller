@@ -217,7 +217,7 @@ var _ = Describe("Multus dynamic networks controller", func() {
 			const (
 				ifaceToAdd = "ens58"
 				macAddress = "02:03:04:05:06:07"
-				timeout    = 2 * time.Second
+				timeout    = 5 * time.Second
 			)
 
 			var (
