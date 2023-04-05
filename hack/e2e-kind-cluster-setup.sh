@@ -6,8 +6,15 @@ OCI_BIN=${OCI_BIN:-docker}
 IMG_REGISTRY=${IMAGE_REGISTRY:-localhost:5000/k8snetworkplumbingwg}
 IMG_TAG="latest"
 
+start_registry_container() {
+    pushd multus-cni
+    trap "popd" RETURN SIGINT
+    "$OCI_BIN" run -d --restart=always -p "5000:5000" --name "kind-registry" registry:2
+    "$OCI_BIN" build -t localhost:5000/multus:e2e -f images/Dockerfile.thick .
+    "$OCI_BIN" push localhost:5000/multus:e2e
+}
+
 setup_cluster() {
-    git clone https://github.com/k8snetworkplumbingwg/multus-cni/
     pushd multus-cni/e2e
     trap "popd" RETURN SIGINT
     ./get_tools.sh
@@ -27,6 +34,8 @@ cleanup() {
 }
 
 trap "cleanup" EXIT
+git clone https://github.com/k8snetworkplumbingwg/multus-cni/
+start_registry_container
 setup_cluster
 push_local_image
 kubectl apply -f manifests/dynamic-networks-controller.yaml
