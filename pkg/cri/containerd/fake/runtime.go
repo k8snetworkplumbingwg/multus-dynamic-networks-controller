@@ -8,7 +8,7 @@ import (
 	"github.com/containerd/containerd/cio"
 	"github.com/containerd/containerd/containers"
 	"github.com/containerd/containerd/oci"
-	"github.com/gogo/protobuf/types"
+	"github.com/containerd/typeurl/v2"
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
@@ -114,8 +114,8 @@ func (Container) SetLabels(context.Context, map[string]string) (map[string]strin
 	return map[string]string{}, nil
 }
 
-func (Container) Extensions(context.Context) (map[string]types.Any, error) {
-	return map[string]types.Any{}, nil
+func (Container) Extensions(context.Context) (map[string]typeurl.Any, error) {
+	return map[string]typeurl.Any{}, nil
 }
 
 func (Container) Update(context.Context, ...containerd.UpdateContainerOpts) error {
