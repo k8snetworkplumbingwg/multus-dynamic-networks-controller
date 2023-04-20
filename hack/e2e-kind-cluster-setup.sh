@@ -12,7 +12,7 @@ setup_cluster() {
     trap "popd" RETURN SIGINT
     ./get_tools.sh
     CNI_VERSION="$CNI_VERSION" ./generate_yamls.sh
-    OCI_BIN="$OCI_BIN" ./setup_cluster.sh
+    OCI_BIN="$OCI_BIN" MULTUS_MANIFEST="multus-daemonset-thick.yml" ./setup_cluster.sh
 }
 
 push_local_image() {
