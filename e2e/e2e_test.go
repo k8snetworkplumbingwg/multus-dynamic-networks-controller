@@ -30,6 +30,7 @@ var _ = Describe("Multus dynamic networks controller", func() {
 		namespace   = "ns1"
 		networkName = "tenant-network"
 		podName     = "tiny-winy-pod"
+		timeout     = 5 * time.Second
 	)
 	var clients *client.E2EClient
 
@@ -102,7 +103,7 @@ var _ = Describe("Multus dynamic networks controller", func() {
 					Namespace:        namespace,
 					InterfaceRequest: ifaceToAdd,
 				})).To(Succeed())
-				Eventually(filterPodNonDefaultNetworks).Should(
+				Eventually(filterPodNonDefaultNetworks, timeout).Should(
 					WithTransform(
 						status.CleanMACAddressesFromStatus(),
 						ConsistOf(
@@ -117,7 +118,7 @@ var _ = Describe("Multus dynamic networks controller", func() {
 				const ifaceToRemove = initialPodIfaceName
 
 				Expect(clients.RemoveNetworkFromPod(pod, networkName, namespace, ifaceToRemove)).To(Succeed())
-				Eventually(filterPodNonDefaultNetworks).Should(BeEmpty())
+				Eventually(filterPodNonDefaultNetworks, timeout).Should(BeEmpty())
 			})
 
 			Context("a network with IPAM", func() {
@@ -143,7 +144,7 @@ var _ = Describe("Multus dynamic networks controller", func() {
 				})
 
 				It("can be hotplugged into a running pod", func() {
-					Eventually(filterPodNonDefaultNetworks).Should(
+					Eventually(filterPodNonDefaultNetworks, timeout).Should(
 						ContainElements(
 							nettypes.NetworkStatus{
 								Name:      namespacedName(namespace, ipamNetworkToAdd),
@@ -161,7 +162,7 @@ var _ = Describe("Multus dynamic networks controller", func() {
 					pod = &pods.Items[0]
 
 					Expect(clients.RemoveNetworkFromPod(pod, networkName, namespace, ifaceToRemove)).To(Succeed())
-					Eventually(filterPodNonDefaultNetworks).Should(
+					Eventually(filterPodNonDefaultNetworks, timeout).Should(
 						Not(ContainElements(
 							nettypes.NetworkStatus{
 								Name:      namespacedName(namespace, ipamNetworkToAdd),
@@ -203,7 +204,7 @@ var _ = Describe("Multus dynamic networks controller", func() {
 					InterfaceRequest: ifaceToAdd,
 					MacRequest:       desiredMACAddr,
 				})).To(Succeed())
-				Eventually(filterPodNonDefaultNetworks).Should(
+				Eventually(filterPodNonDefaultNetworks, timeout).Should(
 					ConsistOf(
 						nettypes.NetworkStatus{
 							Name:      namespacedName(namespace, networkName),
@@ -217,7 +218,6 @@ var _ = Describe("Multus dynamic networks controller", func() {
 			const (
 				ifaceToAdd = "ens58"
 				macAddress = "02:03:04:05:06:07"
-				timeout    = 5 * time.Second
 			)
 
 			var (
