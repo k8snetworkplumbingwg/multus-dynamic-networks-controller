@@ -157,7 +157,7 @@ var _ = Describe("Multus dynamic networks controller", func() {
 
 				It("can be hot unplugged from a running pod", func() {
 					const ifaceToRemove = ifaceToAddWithIPAM
-					pods, err := clients.ListPods(namespace, fmt.Sprintf("app=%s", podName))
+					pods, err := clients.ListPods(namespace, appLabel(podName))
 					Expect(err).NotTo(HaveOccurred())
 					pod = &pods.Items[0]
 
@@ -270,7 +270,7 @@ var _ = Describe("Multus dynamic networks controller", func() {
 			})
 
 			runningPod := func() *corev1.Pod {
-				pods, err := clients.ListPods(namespace, fmt.Sprintf("app=%s", podName))
+				pods, err := clients.ListPods(namespace, appLabel(podName))
 				ExpectWithOffset(1, err).NotTo(HaveOccurred())
 				ExpectWithOffset(1, pods.Items).NotTo(BeEmpty())
 				return &pods.Items[0]
@@ -418,4 +418,8 @@ func lowerDeviceName() string {
 		return lowerDeviceIfaceName
 	}
 	return defaultLowerDeviceIfaceName
+}
+
+func appLabel(appName string) string {
+	return fmt.Sprintf("app=%s", appName)
 }
