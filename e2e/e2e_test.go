@@ -62,6 +62,14 @@ var _ = Describe("Multus dynamic networks controller", func() {
 			})
 		}
 
+		isTestNamespaceEmpty := func() bool {
+			pods, err := clients.ListPods(namespace, appLabel(podName))
+			if err != nil {
+				return false
+			}
+			return len(pods.Items) == 0
+		}
+
 		Context("a provisioned pod having network selection elements", func() {
 			var pod *corev1.Pod
 
@@ -93,6 +101,7 @@ var _ = Describe("Multus dynamic networks controller", func() {
 
 			AfterEach(func() {
 				Expect(clients.DeletePod(pod)).To(Succeed())
+				Eventually(isTestNamespaceEmpty, timeout).Should(BeTrue())
 			})
 
 			It("manages to add a new interface to a running pod", func() {
@@ -190,6 +199,7 @@ var _ = Describe("Multus dynamic networks controller", func() {
 
 			AfterEach(func() {
 				Expect(clients.DeletePod(pod)).To(Succeed())
+				Eventually(isTestNamespaceEmpty, timeout).Should(BeTrue())
 			})
 
 			It("manages to add a new interface to a running pod", func() {
@@ -267,6 +277,7 @@ var _ = Describe("Multus dynamic networks controller", func() {
 
 			AfterEach(func() {
 				Expect(clients.DeletePod(pod)).To(Succeed())
+				Eventually(isTestNamespaceEmpty, timeout).Should(BeTrue())
 			})
 
 			runningPod := func() *corev1.Pod {
