@@ -63,7 +63,7 @@ data:
     {
         "criType": "crio",
         "criSocketPath": "/host/run/crio/crio.sock",
-        "multusSocketPath": "/host/run/multus/multus.sock"
+        "multusSocketPath": "/host/run/multus/socket/multus.sock"
     }
 ---
 apiVersion: apps/v1
@@ -112,7 +112,7 @@ spec:
                 - curl
                 - --fail
                 - --unix-socket
-                - /host/run/multus/multus.sock
+                - /host/run/multus/socket/multus.sock
                 - localhost/healthz
             initialDelaySeconds: 15
             periodSeconds: 5
@@ -127,7 +127,7 @@ spec:
               mountPath: /etc/dynamic-networks-controller/
               readOnly: true
             - name: multus-server-socket
-              mountPath: /host/run/multus/multus.sock
+              mountPath: /host/run/multus/socket/multus.sock
             - name: cri-socket
               mountPath: /host/run/crio/crio.sock
       terminationGracePeriodSeconds: 10
@@ -140,7 +140,7 @@ spec:
                 path: dynamic-networks-config.json
         -  name: multus-server-socket
            hostPath:
-             path: /run/multus/multus.sock
+             path: /run/multus/socket/multus.sock
              type: Socket
         -  name: cri-socket
            hostPath:

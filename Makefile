@@ -8,7 +8,7 @@ NAMESPACE ?= kube-system
 
 CONTAINERD_SOCKET_PATH ?= "/run/containerd/containerd.sock"
 CRIO_SOCKET_PATH ?= "/run/crio/crio.sock"
-MULTUS_SOCKET_PATH ?= "/run/multus/multus.sock"
+MULTUS_SOCKET_PATH ?= "/run/multus/socket/multus.sock"
 
 GIT_SHA := $(shell git describe --no-match  --always --abbrev=40 --dirty)
 
