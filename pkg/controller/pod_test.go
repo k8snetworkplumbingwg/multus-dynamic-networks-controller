@@ -66,11 +66,13 @@ var _ = Describe("Dynamic Attachment controller", func() {
 		Context("with an existing running pod", func() {
 			const (
 				cniVersion  = "0.3.0"
+				ipAddr      = "172.16.0.1"
 				macAddr     = "02:03:04:05:06:07"
 				namespace   = "default"
 				networkName = "tiny-net"
 				podName     = "tiny-winy-pod"
 			)
+			cniArgs := &map[string]string{"foo": "bar"}
 			var (
 				eventRecorder *record.FakeRecorder
 				k8sClient     k8sclient.Interface
@@ -168,8 +170,8 @@ var _ = Describe("Dynamic Attachment controller", func() {
 						}
 						return status, nil
 					}).Should(ConsistOf(
-						ifaceStatus(namespace, networkName, "net0", ""),
-						ifaceStatus(namespace, networkToAdd, "net1", macAddr)))
+						ifaceStatusForDefaultNamespace(networkName, "net0", ""),
+						ifaceStatusForDefaultNamespace(networkToAdd, "net1", macAddr)))
 				})
 			})
 
@@ -233,7 +235,7 @@ var _ = Describe("Dynamic Attachment controller", func() {
 						}
 						return status, nil
 					}).Should(ConsistOf(
-						ifaceStatus(namespace, networkName, "net0", "")))
+						ifaceStatusForDefaultNamespace(networkName, "net0", "")))
 				})
 
 				It("throws an event indicating the interface add operation is rejected", func() {
@@ -244,6 +246,61 @@ var _ = Describe("Dynamic Attachment controller", func() {
 					Eventually(<-eventRecorder.Events).Should(Equal(expectedEventPayload))
 				})
 			})
+
+			When("an attachment is added with attributes (IPs, MAC, cni-args)", func() {
+				JustBeforeEach(func() {
+					pod = updatePodSpec(pod)
+					netSelectionElements := append(generateNetworkSelectionElements(namespace, networkName),
+						nad.NetworkSelectionElement{
+							Name:             networkToAdd,
+							Namespace:        namespace,
+							InterfaceRequest: "net1",
+							IPRequest:        []string{ipAddr},
+							MacRequest:       macAddr,
+							CNIArgs: &map[string]interface{}{
+								"foo": "bar",
+							},
+						},
+					)
+					serelizedNetSelectionElements, _ := json.Marshal(netSelectionElements)
+					pod.Annotations[nad.NetworkAttachmentAnnot] = string(serelizedNetSelectionElements)
+					_, err := k8sClient.CoreV1().Pods(namespace).UpdateStatus(
+						context.TODO(),
+						pod,
+						metav1.UpdateOptions{})
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("an `AddedInterface` event is seen in the event recorded", func() {
+					expectedEventPayload := fmt.Sprintf(
+						"Normal AddedInterface pod [%s]: added interface %s to network: %s(ips: [%s], mac: %s, cni-args: %v)",
+						annotations.NamespacedName(namespace, podName),
+						"net1",
+						networkToAdd,
+						ipAddr,
+						macAddr,
+						cniArgs,
+					)
+					Eventually(<-eventRecorder.Events).Should(Equal(expectedEventPayload))
+				})
+
+				It("the pod network-status is updated with the new network attachment", func() {
+					Eventually(func() ([]nad.NetworkStatus, error) {
+						updatedPod, err := k8sClient.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+						if err != nil {
+							return nil, err
+						}
+						status, err := annotations.PodDynamicNetworkStatus(updatedPod)
+						if err != nil {
+							return nil, err
+						}
+						return status, nil
+					}).Should(ConsistOf(
+						ifaceStatusForDefaultNamespace(networkName, "net0", ""),
+						ifaceStatusForDefaultNamespace(networkToAdd, "net1", macAddr)))
+				})
+			})
+
 		})
 	})
 })
@@ -425,7 +482,7 @@ func podNetworkConfig(networkNames ...string) map[string]string {
 	}
 }
 
-func generateNetworkSelectionAnnotation(namespace string, networkNames ...string) string {
+func generateNetworkSelectionElements(namespace string, networkNames ...string) []nad.NetworkSelectionElement {
 	var netSelectionElements []nad.NetworkSelectionElement
 	for i, networkName := range networkNames {
 		netSelectionElements = append(
@@ -439,6 +496,11 @@ func generateNetworkSelectionAnnotation(namespace string, networkNames ...string
 	if netSelectionElements == nil {
 		netSelectionElements = make([]nad.NetworkSelectionElement, 0)
 	}
+	return netSelectionElements
+}
+
+func generateNetworkSelectionAnnotation(namespace string, networkNames ...string) string {
+	netSelectionElements := generateNetworkSelectionElements(namespace, networkNames...)
 	serelizedNetSelectionElements, err := json.Marshal(netSelectionElements)
 	if err != nil {
 		return ""
@@ -479,7 +541,8 @@ func dummyMultusConfig() string {
 }`
 }
 
-func ifaceStatus(namespace, networkName, ifaceName, macAddress string) nad.NetworkStatus {
+func ifaceStatusForDefaultNamespace(networkName, ifaceName, macAddress string) nad.NetworkStatus {
+	const namespace = "default"
 	return nad.NetworkStatus{
 		Name:      fmt.Sprintf("%s/%s", namespace, networkName),
 		Interface: ifaceName,
