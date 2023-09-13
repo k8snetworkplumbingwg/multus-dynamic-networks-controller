@@ -301,6 +301,58 @@ var _ = Describe("Dynamic Attachment controller", func() {
 				})
 			})
 
+			When("an attachment is removed and another is added from the pod's network annotations", func() {
+				JustBeforeEach(func() {
+					pod = updatePodSpec(pod)
+					netSelectionElements := []nad.NetworkSelectionElement{
+						{
+							Name:             networkToAdd,
+							Namespace:        namespace,
+							InterfaceRequest: "net1",
+						},
+					}
+					serelizedNetSelectionElements, _ := json.Marshal(netSelectionElements)
+					pod.Annotations[nad.NetworkAttachmentAnnot] = string(serelizedNetSelectionElements)
+					var err error
+					_, err = k8sClient.CoreV1().Pods(namespace).UpdateStatus(
+						context.TODO(),
+						pod,
+						metav1.UpdateOptions{})
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("an `AddedInterface` event and then and `RemovedInterface` event are seen in the event recorded", func() {
+					expectedEventPayload := fmt.Sprintf(
+						"Normal AddedInterface pod [%s]: added interface %s to network: %s",
+						annotations.NamespacedName(namespace, podName),
+						"net1",
+						networkToAdd,
+					)
+					Eventually(<-eventRecorder.Events).Should(Equal(expectedEventPayload))
+					expectedEventPayload = fmt.Sprintf(
+						"Normal RemovedInterface pod [%s]: removed interface %s from network: %s",
+						annotations.NamespacedName(namespace, podName),
+						"net0",
+						networkName,
+					)
+					Eventually(<-eventRecorder.Events).Should(Equal(expectedEventPayload))
+				})
+
+				It("the pod network-status is updated with the new network attachment and without the other one", func() {
+					Eventually(func() ([]nad.NetworkStatus, error) {
+						updatedPod, err := k8sClient.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+						if err != nil {
+							return nil, err
+						}
+						status, err := annotations.PodDynamicNetworkStatus(updatedPod)
+						if err != nil {
+							return nil, err
+						}
+						return status, nil
+					}).Should(ConsistOf(ifaceStatusForDefaultNamespace(networkToAdd, "net1", macAddr)))
+				})
+			})
+
 		})
 	})
 })

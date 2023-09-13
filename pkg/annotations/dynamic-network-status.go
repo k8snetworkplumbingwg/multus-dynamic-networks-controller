@@ -3,10 +3,12 @@ package annotations
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 
 	nettypes "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+	v1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	nadutils "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/utils"
 )
 
@@ -62,6 +64,31 @@ func PodDynamicNetworkStatus(currentPod *corev1.Pod) ([]nettypes.NetworkStatus, 
 		}
 	}
 	return currentIfaceStatus, nil
+}
+
+// SetNetworkStatus updates the Pod status
+func SetNetworkStatus(pod *corev1.Pod, statuses []v1.NetworkStatus) error {
+	if pod == nil {
+		return fmt.Errorf("no pod set")
+	}
+
+	var networkStatus []string
+
+	for _, status := range statuses {
+		data, err := json.MarshalIndent(status, "", "    ")
+		if err != nil {
+			return fmt.Errorf("SetNetworkStatus: error with Marshal Indent: %v", err)
+		}
+		networkStatus = append(networkStatus, string(data))
+	}
+
+	if len(pod.Annotations) == 0 {
+		pod.Annotations = make(map[string]string)
+	}
+
+	pod.Annotations[v1.NetworkStatusAnnot] = fmt.Sprintf("[%s]", strings.Join(networkStatus, ","))
+
+	return nil
 }
 
 func podNameAndNs(currentPod *corev1.Pod) string {

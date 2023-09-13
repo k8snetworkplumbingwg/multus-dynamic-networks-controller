@@ -248,6 +248,20 @@ func (pnc *PodNetworksController) processNextWorkItem() bool {
 		}
 	}
 
+	// handleDynamicInterfaceRequest modifies the pod annotation with the latest status
+	// so the updated status annotation can be obtained from there.
+	newIfaceStatus, err := annotations.PodDynamicNetworkStatus(pod)
+	if err != nil {
+		klog.Errorf("failed while getting network status annotation: %v", err)
+		return true
+	}
+
+	// apply the network status using the Kubernetes API.
+	if err := nadutils.SetNetworkStatus(pnc.k8sClientSet, pod, newIfaceStatus); err != nil {
+		klog.Errorf("failed while setting network status annotation: %v", err)
+		return true
+	}
+
 	return true
 }
 
@@ -346,8 +360,9 @@ func (pnc *PodNetworksController) addNetworks(dynamicAttachmentRequest *DynamicA
 		return fmt.Errorf("failed to compute the updated network status: %v", err)
 	}
 
-	if err := nadutils.SetNetworkStatus(pnc.k8sClientSet, pod, newIfaceStatus); err != nil {
-		return err
+	err = annotations.SetNetworkStatus(pod, newIfaceStatus)
+	if err != nil {
+		return fmt.Errorf("failed to set the network status annotation: %v", err)
 	}
 
 	return nil
@@ -404,8 +419,10 @@ func (pnc *PodNetworksController) removeNetworks(dynamicAttachmentRequest *Dynam
 			err,
 		)
 	}
-	if err := nadutils.SetNetworkStatus(pnc.k8sClientSet, pod, newIfaceStatus); err != nil {
-		return err
+
+	err = annotations.SetNetworkStatus(pod, newIfaceStatus)
+	if err != nil {
+		return fmt.Errorf("failed to set the network status annotation: %v", err)
 	}
 
 	return nil
