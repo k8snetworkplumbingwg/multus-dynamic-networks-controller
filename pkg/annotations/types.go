@@ -16,3 +16,11 @@ func NewAttachmentResult(attachment *nadv1.NetworkSelectionElement, result *mult
 		result:     result,
 	}
 }
+
+func (ar *AttachmentResult) IsValid() bool {
+	return ar != nil && ar.attachment != nil
+}
+
+func (ar *AttachmentResult) HasResult() bool {
+	return ar.IsValid() && ar.result != nil
+}

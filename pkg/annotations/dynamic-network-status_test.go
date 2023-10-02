@@ -115,8 +115,11 @@ var _ = Describe("NetworkStatusFromResponse", func() {
 				*newNetworkSelectionElementWithIface(ifaceToRemove.networkName, ifaceToRemove.ifaceName, namespace),
 			)
 		}
+		pod := newPod(podName, namespace, initialNetStatus...)
+		currentNetStatus, err := annotations.PodDynamicNetworkStatus(pod)
+		Expect(err).NotTo(HaveOccurred())
 		Expect(
-			annotations.DeleteDynamicIfaceFromStatus(newPod(podName, namespace, initialNetStatus...), netsToRemove...),
+			annotations.DeleteDynamicIfaceFromStatus(currentNetStatus, netsToRemove...),
 		).To(Equal(expectedNetworkStatus))
 	},
 		Entry("when there aren't any existing interfaces", nil, []nadv1.NetworkStatus{}, attachmentInfo{
