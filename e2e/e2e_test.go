@@ -130,6 +130,28 @@ var _ = Describe("Multus dynamic networks controller", func() {
 				Eventually(filterPodNonDefaultNetworks, timeout).Should(BeEmpty())
 			})
 
+			It("interfaces can be added / removed in the same operation", func() {
+				const newIface = "eth321"
+				Expect(clients.SetPodNetworks(
+					pod,
+					NetworkSelectionElements(
+						dynamicNetworkInfo{
+							namespace:   namespace,
+							networkName: networkName,
+							ifaceName:   newIface,
+						})...,
+				)).To(Succeed())
+				Eventually(filterPodNonDefaultNetworks, timeout).Should(
+					WithTransform(
+						status.CleanMACAddressesFromStatus(),
+						ConsistOf(
+							nettypes.NetworkStatus{
+								Name:      namespacedName(namespace, networkName),
+								Interface: newIface,
+							},
+						)))
+			})
+
 			Context("a network with IPAM", func() {
 				const (
 					ifaceToAddWithIPAM = "ens202"
@@ -388,9 +410,20 @@ type dynamicNetworkInfo struct {
 }
 
 func PodNetworkSelectionElements(networkConfig ...dynamicNetworkInfo) map[string]string {
-	if len(networkConfig) == 0 {
+	podNetworkConfig := NetworkSelectionElements(networkConfig...)
+	if podNetworkConfig == nil {
 		return map[string]string{}
 	}
+	podNetworksConfig, err := json.Marshal(podNetworkConfig)
+	if err != nil {
+		return map[string]string{}
+	}
+	return map[string]string{
+		nettypes.NetworkAttachmentAnnot: string(podNetworksConfig),
+	}
+}
+
+func NetworkSelectionElements(networkConfig ...dynamicNetworkInfo) []nettypes.NetworkSelectionElement {
 	var podNetworkConfig []nettypes.NetworkSelectionElement
 	for i := range networkConfig {
 		podNetworkConfig = append(
@@ -402,14 +435,7 @@ func PodNetworkSelectionElements(networkConfig ...dynamicNetworkInfo) map[string
 			},
 		)
 	}
-
-	podNetworksConfig, err := json.Marshal(podNetworkConfig)
-	if err != nil {
-		return map[string]string{}
-	}
-	return map[string]string{
-		nettypes.NetworkAttachmentAnnot: string(podNetworksConfig),
-	}
+	return podNetworkConfig
 }
 
 func namespacedName(namespace, name string) string {
