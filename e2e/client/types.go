@@ -120,6 +120,23 @@ func (c *E2EClient) RemoveNetworkFromPod(pod *corev1.Pod, networkName string, na
 	return err
 }
 
+func (c *E2EClient) SetPodNetworks(pod *corev1.Pod, networks ...nettypes.NetworkSelectionElement) error {
+	var selectionElements string
+	if len(networks) > 0 {
+		newSelectionElementsBytes, err := json.Marshal(networks)
+		if err != nil {
+			return fmt.Errorf("could not marshall the desired networks: %v", err)
+		}
+		selectionElements = string(newSelectionElementsBytes)
+	} else {
+		selectionElements = "[]"
+	}
+
+	pod.ObjectMeta.Annotations[nettypes.NetworkAttachmentAnnot] = selectionElements
+	_, err := c.k8sClient.CoreV1().Pods(pod.Namespace).Update(context.TODO(), pod, metav1.UpdateOptions{})
+	return err
+}
+
 // WaitForPodReady polls up to timeout seconds for pod to enter steady state (running or succeeded state).
 // Returns an error if the pod never enters a steady state.
 func (c *E2EClient) WaitForPodReady(namespace, podName string, timeout time.Duration) error {
