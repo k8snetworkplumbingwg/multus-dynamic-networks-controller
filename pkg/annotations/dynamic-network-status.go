@@ -3,12 +3,10 @@ package annotations
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 
 	nettypes "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
-	v1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	nadutils "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/utils"
 )
 
@@ -37,8 +35,8 @@ func AddDynamicIfaceToStatus(currentPod *corev1.Pod, attachmentResults ...Attach
 	return currentIfaceStatus, nil
 }
 
-func DeleteDynamicIfaceFromStatus(currentPod *corev1.Pod, networkSelectionElements ...nettypes.NetworkSelectionElement) ([]nettypes.NetworkStatus, error) {
-	indexedStatus := IndexNetworkStatus(currentPod)
+func DeleteDynamicIfaceFromStatus(currentPodNetworkStatus []nettypes.NetworkStatus, networkSelectionElements ...nettypes.NetworkSelectionElement) ([]nettypes.NetworkStatus, error) {
+	indexedStatus := IndexNetworkStatus(currentPodNetworkStatus)
 	for _, networkSelectionElement := range networkSelectionElements {
 		netStatusKey := fmt.Sprintf(
 			"%s/%s",
@@ -66,31 +64,6 @@ func PodDynamicNetworkStatus(currentPod *corev1.Pod) ([]nettypes.NetworkStatus, 
 	return currentIfaceStatus, nil
 }
 
-// SetNetworkStatus updates the Pod status
-func SetNetworkStatus(pod *corev1.Pod, statuses []v1.NetworkStatus) error {
-	if pod == nil {
-		return fmt.Errorf("no pod set")
-	}
-
-	var networkStatus []string
-
-	for _, status := range statuses {
-		data, err := json.MarshalIndent(status, "", "    ")
-		if err != nil {
-			return fmt.Errorf("SetNetworkStatus: error with Marshal Indent: %v", err)
-		}
-		networkStatus = append(networkStatus, string(data))
-	}
-
-	if len(pod.Annotations) == 0 {
-		pod.Annotations = make(map[string]string)
-	}
-
-	pod.Annotations[v1.NetworkStatusAnnot] = fmt.Sprintf("[%s]", strings.Join(networkStatus, ","))
-
-	return nil
-}
-
 func podNameAndNs(currentPod *corev1.Pod) string {
 	return fmt.Sprintf("%s/%s", currentPod.GetNamespace(), currentPod.GetName())
 }
@@ -99,10 +72,12 @@ func NamespacedName(podNamespace string, podName string) string {
 	return fmt.Sprintf("%s/%s", podNamespace, podName)
 }
 
-func IndexNetworkStatus(pod *corev1.Pod) map[string]nettypes.NetworkStatus {
-	return indexNetworkStatusWithIgnorePredicate(pod, func(status nettypes.NetworkStatus) bool {
-		return false
-	})
+func IndexNetworkStatus(currentPodNetworkStatus []nettypes.NetworkStatus) map[string]nettypes.NetworkStatus {
+	indexedNetworkStatus := map[string]nettypes.NetworkStatus{}
+	for i := range currentPodNetworkStatus {
+		indexedNetworkStatus[networkStatusIndexKey(currentPodNetworkStatus[i])] = currentPodNetworkStatus[i]
+	}
+	return indexedNetworkStatus
 }
 
 func indexNetworkStatusWithIgnorePredicate(pod *corev1.Pod, p IgnoreStatusPredicate) map[string]nettypes.NetworkStatus {
@@ -132,4 +107,27 @@ func IndexNetworkStatusIgnoringDefaultNetwork(pod *corev1.Pod) map[string]nettyp
 	return indexNetworkStatusWithIgnorePredicate(pod, func(status nettypes.NetworkStatus) bool {
 		return status.Default
 	})
+}
+
+func UpdatePodNetworkStatus(currentPod *corev1.Pod, attachmentsToUpdate []AttachmentResult) ([]nettypes.NetworkStatus, error) {
+	var (
+		toAdd    []AttachmentResult
+		toRemove []nettypes.NetworkSelectionElement
+	)
+
+	for _, res := range attachmentsToUpdate {
+		if res.IsValid() && !res.HasResult() {
+			toRemove = append(toRemove, *res.attachment)
+		}
+		toAdd = append(toAdd, res)
+	}
+	updatedNetworkStatus, err := AddDynamicIfaceToStatus(currentPod, toAdd...)
+	if err != nil {
+		return nil, err
+	}
+	updatedNetworkStatus, err = DeleteDynamicIfaceFromStatus(updatedNetworkStatus, toRemove...)
+	if err != nil {
+		return nil, err
+	}
+	return updatedNetworkStatus, nil
 }

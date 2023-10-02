@@ -210,8 +210,9 @@ func (pnc *PodNetworksController) processNextWorkItem() bool {
 		}
 	}
 
+	var results []annotations.AttachmentResult
 	if len(attachmentsToAdd) > 0 {
-		err = pnc.handleDynamicInterfaceRequest(
+		results, err = pnc.handleDynamicInterfaceRequest(
 			&DynamicAttachmentRequest{
 				Pod:         pod,
 				Attachments: attachmentsToAdd,
@@ -236,7 +237,8 @@ func (pnc *PodNetworksController) processNextWorkItem() bool {
 		}
 	}
 	if len(attachmentsToRemove) > 0 {
-		err = pnc.handleDynamicInterfaceRequest(&DynamicAttachmentRequest{
+		var res []annotations.AttachmentResult
+		res, err = pnc.handleDynamicInterfaceRequest(&DynamicAttachmentRequest{
 			Pod:         pod,
 			Attachments: attachmentsToRemove,
 			Type:        remove,
@@ -246,26 +248,22 @@ func (pnc *PodNetworksController) processNextWorkItem() bool {
 			klog.Errorf("error removing attachments: %v", err)
 			return true
 		}
+		results = append(results, res...)
 	}
 
-	// handleDynamicInterfaceRequest modifies the pod annotation with the latest status
-	// so the updated status annotation can be obtained from there.
-	newIfaceStatus, err := annotations.PodDynamicNetworkStatus(pod)
+	updatedStatus, err := annotations.UpdatePodNetworkStatus(pod, results)
 	if err != nil {
-		klog.Errorf("failed while getting network status annotation: %v", err)
-		return true
+		klog.Errorf("error computing pod %q updated network status: %v", podNamespacedName, err)
 	}
 
-	// apply the network status using the Kubernetes API.
-	if err := nadutils.SetNetworkStatus(pnc.k8sClientSet, pod, newIfaceStatus); err != nil {
-		klog.Errorf("failed while setting network status annotation: %v", err)
-		return true
+	if err := nadutils.SetNetworkStatus(pnc.k8sClientSet, pod, updatedStatus); err != nil {
+		klog.Errorf("error updating pod %q network status: %v", podNamespacedName, err)
 	}
 
 	return true
 }
 
-func (pnc *PodNetworksController) handleDynamicInterfaceRequest(dynamicAttachmentRequest *DynamicAttachmentRequest) error {
+func (pnc *PodNetworksController) handleDynamicInterfaceRequest(dynamicAttachmentRequest *DynamicAttachmentRequest) ([]annotations.AttachmentResult, error) {
 	klog.Infof("handleDynamicInterfaceRequest: read from queue: %v", dynamicAttachmentRequest)
 	if dynamicAttachmentRequest.Type == add {
 		return pnc.addNetworks(dynamicAttachmentRequest)
@@ -275,7 +273,7 @@ func (pnc *PodNetworksController) handleDynamicInterfaceRequest(dynamicAttachmen
 		klog.Infof("very weird attachment request: %+v", dynamicAttachmentRequest)
 	}
 	klog.Infof("handleDynamicInterfaceRequest: exited & successfully processed: %v", dynamicAttachmentRequest)
-	return nil
+	return nil, nil
 }
 
 func (pnc *PodNetworksController) handleResult(err error, namespacedPodName *string) {
@@ -311,7 +309,7 @@ func (pnc *PodNetworksController) handlePodUpdate(oldObj interface{}, newObj int
 	pnc.workqueue.Add(&namespacedName)
 }
 
-func (pnc *PodNetworksController) addNetworks(dynamicAttachmentRequest *DynamicAttachmentRequest) error {
+func (pnc *PodNetworksController) addNetworks(dynamicAttachmentRequest *DynamicAttachmentRequest) ([]annotations.AttachmentResult, error) {
 	pod := dynamicAttachmentRequest.Pod
 
 	var attachmentResults []annotations.AttachmentResult
@@ -322,11 +320,11 @@ func (pnc *PodNetworksController) addNetworks(dynamicAttachmentRequest *DynamicA
 		netAttachDef, err := pnc.netAttachDefLister.NetworkAttachmentDefinitions(netToAdd.Namespace).Get(netToAdd.Name)
 		if err != nil {
 			klog.Errorf("failed to access the networkattachmentdefinition %s/%s: %v", netToAdd.Namespace, netToAdd.Name, err)
-			return err
+			return nil, err
 		}
 		netAttachDefWithDefaults, err := serializeNetAttachDefWithDefaults(netAttachDef)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		response, err := pnc.multusClient.InvokeDelegate(
 			multusapi.CreateDelegateRequest(
@@ -342,7 +340,7 @@ func (pnc *PodNetworksController) addNetworks(dynamicAttachmentRequest *DynamicA
 			))
 
 		if err != nil {
-			return fmt.Errorf("failed to ADD delegate: %v", err)
+			return nil, fmt.Errorf("failed to ADD delegate: %v", err)
 		}
 		klog.Infof("response: %v", *response.Result)
 
@@ -355,23 +353,13 @@ func (pnc *PodNetworksController) addNetworks(dynamicAttachmentRequest *DynamicA
 		)
 	}
 
-	newIfaceStatus, err := annotations.AddDynamicIfaceToStatus(pod, attachmentResults...)
-	if err != nil {
-		return fmt.Errorf("failed to compute the updated network status: %v", err)
-	}
-
-	err = annotations.SetNetworkStatus(pod, newIfaceStatus)
-	if err != nil {
-		return fmt.Errorf("failed to set the network status annotation: %v", err)
-	}
-
-	return nil
+	return attachmentResults, nil
 }
 
-func (pnc *PodNetworksController) removeNetworks(dynamicAttachmentRequest *DynamicAttachmentRequest) error {
+func (pnc *PodNetworksController) removeNetworks(dynamicAttachmentRequest *DynamicAttachmentRequest) ([]annotations.AttachmentResult, error) {
 	pod := dynamicAttachmentRequest.Pod
 
-	var removedNets []nadv1.NetworkSelectionElement
+	var attachmentResults []annotations.AttachmentResult
 	for i := range dynamicAttachmentRequest.Attachments {
 		netToRemove := dynamicAttachmentRequest.Attachments[i]
 		klog.Infof("network to remove: %v", dynamicAttachmentRequest.Attachments[i])
@@ -379,12 +367,12 @@ func (pnc *PodNetworksController) removeNetworks(dynamicAttachmentRequest *Dynam
 		netAttachDef, err := pnc.netAttachDefLister.NetworkAttachmentDefinitions(netToRemove.Namespace).Get(netToRemove.Name)
 		if err != nil {
 			klog.Errorf("failed to access the network-attachment-definition %s/%s: %v", netToRemove.Namespace, netToRemove.Name, err)
-			return err
+			return nil, err
 		}
 
 		netAttachDefWithDefaults, err := serializeNetAttachDefWithDefaults(netAttachDef)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		_, err = pnc.multusClient.InvokeDelegate(
 			multusapi.CreateDelegateRequest(
@@ -399,10 +387,10 @@ func (pnc *PodNetworksController) removeNetworks(dynamicAttachmentRequest *Dynam
 				interfaceAttributes(netToRemove),
 			))
 		if err != nil {
-			return fmt.Errorf("failed to remove delegate: %v", err)
+			return nil, fmt.Errorf("failed to remove delegate: %v", err)
 		}
 
-		removedNets = append(removedNets, netToRemove)
+		attachmentResults = append(attachmentResults, *annotations.NewAttachmentResult(&netToRemove, nil))
 		pnc.Eventf(pod, corev1.EventTypeNormal, "RemovedInterface", removeIfaceEventFormat(pod, &netToRemove))
 		klog.Infof(
 			"removed interface %s from pod %s",
@@ -411,21 +399,7 @@ func (pnc *PodNetworksController) removeNetworks(dynamicAttachmentRequest *Dynam
 		)
 	}
 
-	newIfaceStatus, err := annotations.DeleteDynamicIfaceFromStatus(pod, removedNets...)
-	if err != nil {
-		return fmt.Errorf(
-			"failed to compute the dynamic network attachments after unplugging interface for pod %s: %v",
-			annotations.NamespacedName(pod.GetNamespace(), pod.GetName()),
-			err,
-		)
-	}
-
-	err = annotations.SetNetworkStatus(pod, newIfaceStatus)
-	if err != nil {
-		return fmt.Errorf("failed to set the network status annotation: %v", err)
-	}
-
-	return nil
+	return attachmentResults, nil
 }
 
 // Eventf puts event into kubernetes events
