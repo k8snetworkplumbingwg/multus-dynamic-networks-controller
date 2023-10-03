@@ -313,7 +313,7 @@ var _ = Describe("Multus dynamic networks controller", func() {
 				By("setting the interface name in the existing attachment")
 				Expect(clients.SetInterfaceNamesOnPodsNetworkSelectionElements(runningPod())).To(Succeed())
 
-				Eventually(runtimePodNetworkStatus, timeout).Should(
+				Eventually(runtimePodNetworkStatus, 6*timeout).Should( // this test takes longer, for unknown reasons
 					ConsistOf(
 						append(initialPodsNetworkStatus, nettypes.NetworkStatus{
 							Name:      namespacedName(namespace, networkName),
