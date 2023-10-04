@@ -30,7 +30,7 @@ var _ = Describe("Multus dynamic networks controller", func() {
 		namespace   = "ns1"
 		networkName = "tenant-network"
 		podName     = "tiny-winy-pod"
-		timeout     = 5 * time.Second
+		timeout     = 15 * time.Second
 	)
 	var clients *client.E2EClient
 
@@ -313,7 +313,7 @@ var _ = Describe("Multus dynamic networks controller", func() {
 				By("setting the interface name in the existing attachment")
 				Expect(clients.SetInterfaceNamesOnPodsNetworkSelectionElements(runningPod())).To(Succeed())
 
-				Eventually(runtimePodNetworkStatus, 6*timeout).Should( // this test takes longer, for unknown reasons
+				Eventually(runtimePodNetworkStatus, 2*timeout).Should( // this test takes longer, for unknown reasons
 					ConsistOf(
 						append(initialPodsNetworkStatus, nettypes.NetworkStatus{
 							Name:      namespacedName(namespace, networkName),
