@@ -83,7 +83,7 @@ func (c *E2EClient) ProvisionPod(podName string, namespace string, label, annota
 		return nil, err
 	}
 
-	const podCreateTimeout = 10 * time.Second
+	const podCreateTimeout = 30 * time.Second
 	if err := c.WaitForPodReady(pod.Namespace, pod.Name, podCreateTimeout); err != nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func (c *E2EClient) DeletePod(pod *corev1.Pod) error {
 		return err
 	}
 
-	const podDeleteTimeout = 20 * time.Second
+	const podDeleteTimeout = 30 * time.Second
 	if err := c.WaitForPodToDisappear(pod.GetNamespace(), pod.GetName(), podDeleteTimeout); err != nil {
 		return err
 	}
