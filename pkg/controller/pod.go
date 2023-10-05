@@ -185,9 +185,13 @@ func (pnc *PodNetworksController) processNextWorkItem() bool {
 		klog.Errorf("the update key - [%s] - is not in the namespaced name format: %v", *podNamespacedName, err)
 		return true
 	}
-	defer pnc.handleResult(err, podNamespacedName)
 
+	var results []annotations.AttachmentResult
 	var pod *corev1.Pod
+	defer func() {
+		pnc.handleResult(err, podNamespacedName, pod, results)
+	}()
+
 	pod, err = pnc.podsLister.Pods(podNamespace).Get(podName)
 	if err != nil {
 		klog.Errorf("could not access pod from the informer")
@@ -210,7 +214,6 @@ func (pnc *PodNetworksController) processNextWorkItem() bool {
 		}
 	}
 
-	var results []annotations.AttachmentResult
 	if len(attachmentsToAdd) > 0 {
 		results, err = pnc.handleDynamicInterfaceRequest(
 			&DynamicAttachmentRequest{
@@ -251,19 +254,12 @@ func (pnc *PodNetworksController) processNextWorkItem() bool {
 		results = append(results, res...)
 	}
 
-	updatedStatus, err := annotations.UpdatePodNetworkStatus(pod, results)
-	if err != nil {
-		klog.Errorf("error computing pod %q updated network status: %v", podNamespacedName, err)
-	}
-
-	if err := nadutils.SetNetworkStatus(pnc.k8sClientSet, pod, updatedStatus); err != nil {
-		klog.Errorf("error updating pod %q network status: %v", podNamespacedName, err)
-	}
-
 	return true
 }
 
-func (pnc *PodNetworksController) handleDynamicInterfaceRequest(dynamicAttachmentRequest *DynamicAttachmentRequest) ([]annotations.AttachmentResult, error) {
+func (pnc *PodNetworksController) handleDynamicInterfaceRequest(
+	dynamicAttachmentRequest *DynamicAttachmentRequest,
+) ([]annotations.AttachmentResult, error) {
 	klog.Infof("handleDynamicInterfaceRequest: read from queue: %v", dynamicAttachmentRequest)
 	if dynamicAttachmentRequest.Type == add {
 		return pnc.addNetworks(dynamicAttachmentRequest)
@@ -276,7 +272,31 @@ func (pnc *PodNetworksController) handleDynamicInterfaceRequest(dynamicAttachmen
 	return nil, nil
 }
 
-func (pnc *PodNetworksController) handleResult(err error, namespacedPodName *string) {
+func (pnc *PodNetworksController) handleResult(
+	err error,
+	namespacedPodName *string,
+	pod *corev1.Pod,
+	results []annotations.AttachmentResult,
+) {
+	if results != nil {
+		updatedStatus, podNetworkStatusUpdateError := annotations.UpdatePodNetworkStatus(pod, results)
+		if podNetworkStatusUpdateError != nil {
+			klog.Errorf(
+				"error computing pod %q updated network status: %v",
+				namespacedPodName,
+				podNetworkStatusUpdateError,
+			)
+		}
+
+		if setNetworkStatusError := nadutils.SetNetworkStatus(
+			pnc.k8sClientSet,
+			pod,
+			updatedStatus,
+		); setNetworkStatusError != nil {
+			klog.Errorf("error updating pod %q network status: %v", namespacedPodName, setNetworkStatusError)
+		}
+	}
+
 	if err == nil {
 		pnc.workqueue.Forget(namespacedPodName)
 		return
@@ -356,7 +376,9 @@ func (pnc *PodNetworksController) addNetworks(dynamicAttachmentRequest *DynamicA
 	return attachmentResults, nil
 }
 
-func (pnc *PodNetworksController) removeNetworks(dynamicAttachmentRequest *DynamicAttachmentRequest) ([]annotations.AttachmentResult, error) {
+func (pnc *PodNetworksController) removeNetworks(
+	dynamicAttachmentRequest *DynamicAttachmentRequest,
+) ([]annotations.AttachmentResult, error) {
 	pod := dynamicAttachmentRequest.Pod
 
 	var attachmentResults []annotations.AttachmentResult
