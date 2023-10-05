@@ -309,7 +309,8 @@ func clusterConfig() (*rest.Config, error) {
 
 	kubeconfigPath, found := os.LookupEnv(kubeconfig)
 	if !found {
-		kubeconfigPath = "$HOME/.kube/config"
+		homePath := os.Getenv("HOME")
+		kubeconfigPath = fmt.Sprintf("%s/.kube/config", homePath)
 	}
 
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath)
