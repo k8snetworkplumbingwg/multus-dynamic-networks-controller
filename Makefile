@@ -10,6 +10,8 @@ CONTAINERD_SOCKET_PATH ?= "/run/containerd/containerd.sock"
 CRIO_SOCKET_PATH ?= "/run/crio/crio.sock"
 MULTUS_SOCKET_PATH ?= "/run/multus/multus.sock"
 
+NUMBER_OF_TIMES ?= 1
+
 GIT_SHA := $(shell git describe --no-match  --always --abbrev=40 --dirty)
 
 .PHONY: manifests
@@ -33,4 +35,4 @@ test:
 	$(GO) test -v ./pkg/...
 
 e2e/test:
-	$(GO) test -v -count=1 ./e2e/...
+	$(GO) test -v -count=$(NUMBER_OF_TIMES) ./e2e/...
