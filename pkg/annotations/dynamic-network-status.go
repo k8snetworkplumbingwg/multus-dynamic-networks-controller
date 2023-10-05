@@ -10,12 +10,7 @@ import (
 	nadutils "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/utils"
 )
 
-func AddDynamicIfaceToStatus(currentPod *corev1.Pod, attachmentResults ...AttachmentResult) ([]nettypes.NetworkStatus, error) {
-	currentIfaceStatus, err := PodDynamicNetworkStatus(currentPod)
-	if err != nil {
-		return nil, err
-	}
-
+func AddDynamicIfaceToStatus(currentPodNetworkStatus []nettypes.NetworkStatus, attachmentResults ...AttachmentResult) ([]nettypes.NetworkStatus, error) {
 	for _, attachmentResult := range attachmentResults {
 		response := attachmentResult.result
 		networkSelectionElement := attachmentResult.attachment
@@ -29,10 +24,10 @@ func AddDynamicIfaceToStatus(currentPod *corev1.Pod, attachmentResults ...Attach
 			if err != nil {
 				return nil, fmt.Errorf("failed to create NetworkStatus from the response: %v", err)
 			}
-			currentIfaceStatus = append(currentIfaceStatus, *newIfaceStatus)
+			currentPodNetworkStatus = append(currentPodNetworkStatus, *newIfaceStatus)
 		}
 	}
-	return currentIfaceStatus, nil
+	return currentPodNetworkStatus, nil
 }
 
 func DeleteDynamicIfaceFromStatus(currentPodNetworkStatus []nettypes.NetworkStatus, networkSelectionElements ...nettypes.NetworkSelectionElement) ([]nettypes.NetworkStatus, error) {
@@ -121,7 +116,12 @@ func UpdatePodNetworkStatus(currentPod *corev1.Pod, attachmentsToUpdate []Attach
 		}
 		toAdd = append(toAdd, res)
 	}
-	updatedNetworkStatus, err := AddDynamicIfaceToStatus(currentPod, toAdd...)
+
+	currentIfaceStatus, err := PodDynamicNetworkStatus(currentPod)
+	if err != nil {
+		return nil, err
+	}
+	updatedNetworkStatus, err := AddDynamicIfaceToStatus(currentIfaceStatus, toAdd...)
 	if err != nil {
 		return nil, err
 	}

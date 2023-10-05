@@ -33,9 +33,12 @@ var _ = Describe("NetworkStatusFromResponse", func() {
 	)
 
 	DescribeTable("add dynamic interface to network status", func(initialNetStatus []nadv1.NetworkStatus, resultIPs []string, expectedNetworkStatus []nadv1.NetworkStatus) {
+		pod := newPod(podName, namespace, initialNetStatus...)
+		currentNetStatus, err := annotations.PodDynamicNetworkStatus(pod)
+		Expect(err).NotTo(HaveOccurred())
 		Expect(
 			annotations.AddDynamicIfaceToStatus(
-				newPod(podName, namespace, initialNetStatus...),
+				currentNetStatus,
 				*annotations.NewAttachmentResult(
 					newNetworkSelectionElementWithIface(networkName, ifaceName, namespace),
 					newResponse(ifaceToAdd, macAddr, resultIPs...),
