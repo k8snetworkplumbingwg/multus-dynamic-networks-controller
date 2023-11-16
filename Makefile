@@ -12,7 +12,8 @@ MULTUS_SOCKET_PATH ?= "/run/multus/multus.sock"
 
 GIT_SHA := $(shell git describe --no-match  --always --abbrev=40 --dirty)
 
-.PHONY: manifests
+.PHONY: manifests \
+        vendor
 
 all: build test
 
@@ -34,3 +35,7 @@ test:
 
 e2e/test:
 	$(GO) test -v -count=1 ./e2e/...
+
+vendor:
+	$(GO) mod tidy
+	$(GO) mod vendor
