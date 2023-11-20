@@ -234,6 +234,38 @@ func (cc CrioClient) ListPodSandboxStats(
 	return nil, nil
 }
 
+func (cc CrioClient) CheckpointContainer(
+	context.Context,
+	*crioruntime.CheckpointContainerRequest,
+	...grpc.CallOption,
+) (*crioruntime.CheckpointContainerResponse, error) {
+	return nil, nil
+}
+
+func (cc CrioClient) GetContainerEvents(
+	context.Context,
+	*crioruntime.GetEventsRequest,
+	...grpc.CallOption,
+) (crioruntime.RuntimeService_GetContainerEventsClient, error) {
+	return nil, nil
+}
+
+func (cc CrioClient) ListMetricDescriptors(
+	context.Context,
+	*crioruntime.ListMetricDescriptorsRequest,
+	...grpc.CallOption,
+) (*crioruntime.ListMetricDescriptorsResponse, error) {
+	return nil, nil
+}
+
+func (cc CrioClient) ListPodSandboxMetrics(
+	context.Context,
+	*crioruntime.ListPodSandboxMetricsRequest,
+	...grpc.CallOption,
+) (*crioruntime.ListPodSandboxMetricsResponse, error) {
+	return nil, nil
+}
+
 func newContainerStatusResponseWithLinuxNetworkNamespaceInfo(netnsPath string) criotypes.ContainerStatusResponse {
 	return criotypes.ContainerStatusResponse{
 		RunTimeSpec: criotypes.ContainerRuntimeStatus{
