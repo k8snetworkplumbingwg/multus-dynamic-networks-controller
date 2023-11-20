@@ -21,26 +21,64 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/opencontainers/runtime-spec/specs-go"
-	"golang.org/x/sys/windows"
-
 	"github.com/containerd/containerd/containers"
+
+	specs "github.com/opencontainers/runtime-spec/specs-go"
+	"golang.org/x/sys/windows"
 )
 
-func escapeAndCombineArgs(args []string) string {
-	escaped := make([]string, len(args))
-	for i, a := range args {
-		escaped[i] = windows.EscapeArg(a)
+// WithWindowsCPUCount sets the `Windows.Resources.CPU.Count` section to the
+// `count` specified.
+func WithWindowsCPUCount(count uint64) SpecOpts {
+	return func(_ context.Context, _ Client, _ *containers.Container, s *Spec) error {
+		setCPUWindows(s)
+		s.Windows.Resources.CPU.Count = &count
+		return nil
 	}
-	return strings.Join(escaped, " ")
 }
 
-// WithProcessCommandLine replaces the command line on the generated spec
-func WithProcessCommandLine(cmdLine string) SpecOpts {
+// WithWindowsCPUShares sets the `Windows.Resources.CPU.Shares` section to the
+// `shares` specified.
+func WithWindowsCPUShares(shares uint16) SpecOpts {
 	return func(_ context.Context, _ Client, _ *containers.Container, s *Spec) error {
-		setProcess(s)
-		s.Process.Args = nil
-		s.Process.CommandLine = cmdLine
+		setCPUWindows(s)
+		s.Windows.Resources.CPU.Shares = &shares
+		return nil
+	}
+}
+
+// WithWindowsCPUMaximum sets the `Windows.Resources.CPU.Maximum` section to the
+// `max` specified.
+func WithWindowsCPUMaximum(max uint16) SpecOpts {
+	return func(_ context.Context, _ Client, _ *containers.Container, s *Spec) error {
+		setCPUWindows(s)
+		s.Windows.Resources.CPU.Maximum = &max
+		return nil
+	}
+}
+
+// WithWindowsIgnoreFlushesDuringBoot sets `Windows.IgnoreFlushesDuringBoot`.
+func WithWindowsIgnoreFlushesDuringBoot() SpecOpts {
+	return func(_ context.Context, _ Client, _ *containers.Container, s *Spec) error {
+		if s.Windows == nil {
+			s.Windows = &specs.Windows{}
+		}
+		s.Windows.IgnoreFlushesDuringBoot = true
+		return nil
+	}
+}
+
+// WithWindowNetworksAllowUnqualifiedDNSQuery sets `Windows.Network.AllowUnqualifiedDNSQuery`.
+func WithWindowNetworksAllowUnqualifiedDNSQuery() SpecOpts {
+	return func(_ context.Context, _ Client, _ *containers.Container, s *Spec) error {
+		if s.Windows == nil {
+			s.Windows = &specs.Windows{}
+		}
+		if s.Windows.Network == nil {
+			s.Windows.Network = &specs.WindowsNetwork{}
+		}
+
+		s.Windows.Network.AllowUnqualifiedDNSQuery = true
 		return nil
 	}
 }
@@ -56,9 +94,24 @@ func DeviceFromPath(path string) (*specs.LinuxDevice, error) {
 	return nil, errors.New("device from path not supported on Windows")
 }
 
-// WithDevices does nothing on Windows.
-func WithDevices(devicePath, containerPath, permissions string) SpecOpts {
-	return func(ctx context.Context, client Client, container *containers.Container, spec *Spec) error {
+// WithWindowsNetworkNamespace sets the network namespace for a Windows container.
+func WithWindowsNetworkNamespace(ns string) SpecOpts {
+	return func(_ context.Context, _ Client, _ *containers.Container, s *Spec) error {
+		if s.Windows == nil {
+			s.Windows = &specs.Windows{}
+		}
+		if s.Windows.Network == nil {
+			s.Windows.Network = &specs.WindowsNetwork{}
+		}
+		s.Windows.Network.NetworkNamespace = ns
 		return nil
 	}
+}
+
+func escapeAndCombineArgs(args []string) string {
+	escaped := make([]string, len(args))
+	for i, a := range args {
+		escaped[i] = windows.EscapeArg(a)
+	}
+	return strings.Join(escaped, " ")
 }

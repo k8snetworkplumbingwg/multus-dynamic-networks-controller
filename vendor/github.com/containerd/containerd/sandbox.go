@@ -24,9 +24,10 @@ import (
 
 	"github.com/containerd/containerd/containers"
 	"github.com/containerd/containerd/oci"
+	"github.com/containerd/containerd/protobuf"
 	"github.com/containerd/containerd/protobuf/types"
 	api "github.com/containerd/containerd/sandbox"
-	"github.com/containerd/typeurl/v2"
+	"github.com/containerd/typeurl"
 )
 
 // Sandbox is a high level client to containerd's sandboxes.
@@ -95,7 +96,7 @@ func (s *sandboxClient) Wait(ctx context.Context) (<-chan ExitStatus, error) {
 	go func() {
 		defer close(c)
 
-		exitStatus, err := s.client.SandboxController().Wait(ctx, s.ID())
+		resp, err := s.client.SandboxController().Wait(ctx, s.ID())
 		if err != nil {
 			c <- ExitStatus{
 				code: UnknownExitStatus,
@@ -105,8 +106,8 @@ func (s *sandboxClient) Wait(ctx context.Context) (<-chan ExitStatus, error) {
 		}
 
 		c <- ExitStatus{
-			code:     exitStatus.ExitStatus,
-			exitedAt: exitStatus.ExitedAt,
+			code:     resp.ExitStatus,
+			exitedAt: protobuf.FromTimestamp(resp.ExitedAt),
 		}
 	}()
 
@@ -114,11 +115,14 @@ func (s *sandboxClient) Wait(ctx context.Context) (<-chan ExitStatus, error) {
 }
 
 func (s *sandboxClient) Stop(ctx context.Context) error {
-	return s.client.SandboxController().Stop(ctx, s.ID())
+	if _, err := s.client.SandboxController().Stop(ctx, s.ID()); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *sandboxClient) Shutdown(ctx context.Context) error {
-	if err := s.client.SandboxController().Shutdown(ctx, s.ID()); err != nil {
+	if _, err := s.client.SandboxController().Shutdown(ctx, s.ID()); err != nil {
 		return fmt.Errorf("failed to shutdown sandbox: %w", err)
 	}
 

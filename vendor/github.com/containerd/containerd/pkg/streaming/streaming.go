@@ -19,7 +19,7 @@ package streaming
 import (
 	"context"
 
-	"github.com/containerd/typeurl/v2"
+	"github.com/containerd/typeurl"
 )
 
 type StreamManager interface {

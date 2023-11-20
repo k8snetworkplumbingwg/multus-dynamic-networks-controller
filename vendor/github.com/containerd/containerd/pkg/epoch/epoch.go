@@ -34,14 +34,14 @@ const SourceDateEpochEnv = "SOURCE_DATE_EPOCH"
 // If the env var is not set, SourceDateEpoch returns nil without an error.
 func SourceDateEpoch() (*time.Time, error) {
 	v, ok := os.LookupEnv(SourceDateEpochEnv)
-	if !ok || v == "" {
+	if !ok {
 		return nil, nil // not an error
 	}
 	i64, err := strconv.ParseInt(v, 10, 64)
 	if err != nil {
 		return nil, fmt.Errorf("invalid %s value %q: %w", SourceDateEpochEnv, v, err)
 	}
-	unix := time.Unix(i64, 0).UTC()
+	unix := time.Unix(i64, 0)
 	return &unix, nil
 }
 
@@ -55,7 +55,7 @@ func SourceDateEpochOrNow() time.Time {
 	if epoch != nil {
 		return *epoch
 	}
-	return time.Now().UTC()
+	return time.Now()
 }
 
 // SetSourceDateEpoch sets the SOURCE_DATE_EPOCH env var.

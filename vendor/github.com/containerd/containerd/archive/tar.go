@@ -29,7 +29,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/containerd/containerd/archive/tarheader"
 	"github.com/containerd/containerd/log"
 	"github.com/containerd/containerd/pkg/epoch"
 	"github.com/containerd/containerd/pkg/userns"
@@ -342,7 +341,6 @@ func createTarFile(ctx context.Context, path, extractDir string, hdr *tar.Header
 			}
 		}
 
-	//nolint:staticcheck // TypeRegA is deprecated but we may still receive an external tar with TypeRegA
 	case tar.TypeReg, tar.TypeRegA:
 		file, err := openFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, hdrInfo.Mode())
 		if err != nil {
@@ -587,8 +585,7 @@ func (cw *ChangeWriter) HandleChange(k fs.ChangeKind, p string, f os.FileInfo, e
 			}
 		}
 
-		// Use FileInfoHeaderNoLookups to avoid propagating user names and group names from the host
-		hdr, err := tarheader.FileInfoHeaderNoLookups(f, link)
+		hdr, err := tar.FileInfoHeader(f, link)
 		if err != nil {
 			return err
 		}

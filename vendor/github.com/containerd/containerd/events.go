@@ -23,7 +23,7 @@ import (
 	"github.com/containerd/containerd/errdefs"
 	"github.com/containerd/containerd/events"
 	"github.com/containerd/containerd/protobuf"
-	"github.com/containerd/typeurl/v2"
+	"github.com/containerd/typeurl"
 )
 
 // EventService handles the publish, forward and subscribe of events.

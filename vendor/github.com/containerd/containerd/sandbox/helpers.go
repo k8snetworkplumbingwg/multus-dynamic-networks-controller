@@ -20,7 +20,7 @@ import (
 	"github.com/containerd/containerd/api/types"
 	"github.com/containerd/containerd/protobuf"
 	gogo_types "github.com/containerd/containerd/protobuf/types"
-	"github.com/containerd/typeurl/v2"
+	"github.com/containerd/typeurl"
 )
 
 // ToProto will map Sandbox struct to it's protobuf definition
