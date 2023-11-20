@@ -106,9 +106,11 @@ func NewPodNetworksController(
 		multusClient:     multusClient,
 	}
 
-	podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	if _, err := podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: podNetworksController.handlePodUpdate,
-	})
+	}); err != nil {
+		return nil, fmt.Errorf("error setting the add event handlers: %v", err)
+	}
 
 	return podNetworksController, nil
 }
