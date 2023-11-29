@@ -404,7 +404,19 @@ func newDummyPodController(
 	podController.areNetAttachDefsSynched = alwaysReady
 
 	podInformerFactory.Start(stopChannel)
+	synced := podInformerFactory.WaitForCacheSync(stopChannel)
+	for v, ok := range synced {
+		if !ok {
+			fmt.Fprintf(os.Stderr, "caches failed to sync (podInformerFactory): %v", v)
+		}
+	}
 	netAttachDefInformerFactory.Start(stopChannel)
+	synced = netAttachDefInformerFactory.WaitForCacheSync(stopChannel)
+	for v, ok := range synced {
+		if !ok {
+			fmt.Fprintf(os.Stderr, "caches failed to sync (netAttachDefInformerFactory): %v", v)
+		}
+	}
 
 	controller := &dummyPodController{
 		PodNetworksController: podController,
