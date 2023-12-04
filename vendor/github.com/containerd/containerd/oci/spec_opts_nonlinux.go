@@ -20,6 +20,7 @@ package oci
 
 import (
 	"context"
+	"errors"
 
 	"github.com/containerd/containerd/containers"
 )
@@ -33,4 +34,25 @@ var WithAllCurrentCapabilities = func(ctx context.Context, client Client, c *con
 // WithAllKnownCapabilities sets all the known linux capabilities for the container process
 var WithAllKnownCapabilities = func(ctx context.Context, client Client, c *containers.Container, s *Spec) error {
 	return WithCapabilities(nil)(ctx, client, c, s)
+}
+
+// WithBlockIO sets the container's blkio parameters
+func WithBlockIO(blockio interface{}) SpecOpts {
+	return func(ctx context.Context, _ Client, c *containers.Container, s *Spec) error {
+		return errors.New("blkio not supported")
+	}
+}
+
+// WithCPUShares sets the container's cpu shares
+func WithCPUShares(shares uint64) SpecOpts {
+	return func(ctx context.Context, _ Client, c *containers.Container, s *Spec) error {
+		return nil
+	}
+}
+
+// WithRdt sets the container's RDT parameters
+func WithRdt(closID, l3CacheSchema, memBwSchema string) SpecOpts {
+	return func(_ context.Context, _ Client, _ *containers.Container, _ *Spec) error {
+		return errors.New("RDT not supported")
+	}
 }

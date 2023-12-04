@@ -89,18 +89,6 @@ func WithImage(is images.Store, name string) ExportOpt {
 	}
 }
 
-// WithImages adds multiples images to the exported archive.
-func WithImages(imgs []images.Image) ExportOpt {
-	return func(ctx context.Context, o *exportOptions) error {
-		for _, img := range imgs {
-			img.Target.Annotations = addNameAnnotation(img.Name, img.Target.Annotations)
-			o.manifests = append(o.manifests, img.Target)
-		}
-
-		return nil
-	}
-}
-
 // WithManifest adds a manifest to the exported archive.
 // When names are given they will be set on the manifest in the
 // exported archive, creating an index record for each name.
@@ -188,7 +176,7 @@ func Export(ctx context.Context, store content.Provider, writer io.Writer, opts 
 			}
 
 			name := desc.Annotations[images.AnnotationImageName]
-			if name != "" {
+			if name != "" && !eo.skipDockerManifest {
 				mt.names = append(mt.names, name)
 			}
 		case images.MediaTypeDockerSchema2ManifestList, ocispec.MediaTypeImageIndex:
@@ -227,24 +215,26 @@ func Export(ctx context.Context, store content.Provider, writer io.Writer, opts 
 					records = append(records, r...)
 				}
 
-				if len(manifests) >= 1 {
-					if len(manifests) > 1 {
-						sort.SliceStable(manifests, func(i, j int) bool {
-							if manifests[i].Platform == nil {
-								return false
-							}
-							if manifests[j].Platform == nil {
-								return true
-							}
-							return eo.platform.Less(*manifests[i].Platform, *manifests[j].Platform)
-						})
+				if !eo.skipDockerManifest {
+					if len(manifests) >= 1 {
+						if len(manifests) > 1 {
+							sort.SliceStable(manifests, func(i, j int) bool {
+								if manifests[i].Platform == nil {
+									return false
+								}
+								if manifests[j].Platform == nil {
+									return true
+								}
+								return eo.platform.Less(*manifests[i].Platform, *manifests[j].Platform)
+							})
+						}
+						d = manifests[0].Digest
+						dManifests[d] = &exportManifest{
+							manifest: manifests[0],
+						}
+					} else if eo.platform != nil {
+						return fmt.Errorf("no manifest found for platform: %w", errdefs.ErrNotFound)
 					}
-					d = manifests[0].Digest
-					dManifests[d] = &exportManifest{
-						manifest: manifests[0],
-					}
-				} else if eo.platform != nil {
-					return fmt.Errorf("no manifest found for platform: %w", errdefs.ErrNotFound)
 				}
 				resolvedIndex[desc.Digest] = d
 			}
@@ -260,7 +250,7 @@ func Export(ctx context.Context, store content.Provider, writer io.Writer, opts 
 		}
 	}
 
-	if !eo.skipDockerManifest && len(dManifests) > 0 {
+	if len(dManifests) > 0 {
 		tr, err := manifestsRecord(ctx, store, dManifests)
 		if err != nil {
 			return fmt.Errorf("unable to create manifests file: %w", err)
