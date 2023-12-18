@@ -28,16 +28,10 @@ import (
 	"github.com/containerd/containerd/pkg/transfer"
 	"github.com/containerd/containerd/pkg/transfer/proxy"
 	"github.com/containerd/containerd/protobuf"
-	"github.com/containerd/typeurl/v2"
+	"github.com/containerd/typeurl"
 )
 
 func (c *Client) Transfer(ctx context.Context, src interface{}, dest interface{}, opts ...transfer.Opt) error {
-	ctx, done, err := c.WithLease(ctx)
-	if err != nil {
-		return err
-	}
-	defer done(ctx)
-
 	return proxy.NewTransferrer(transferapi.NewTransferClient(c.conn), c.streamCreator()).Transfer(ctx, src, dest, opts...)
 }
 

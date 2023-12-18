@@ -20,10 +20,10 @@ import (
 	"context"
 	"io"
 
-	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
-
 	"github.com/containerd/containerd/content"
 	"github.com/containerd/containerd/images"
+	"github.com/containerd/containerd/pkg/unpack"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 type Transferrer interface {
@@ -57,27 +57,15 @@ type ImageFilterer interface {
 	ImageFilter(images.HandlerFunc, content.Store) images.HandlerFunc
 }
 
-// ImageStorer is a type which is capable of storing images for
-// the provided descriptor. The descriptor may be any type of manifest
-// including an index with multiple image references.
+// ImageStorer is a type which is capable of storing an image to
+// for a provided descriptor
 type ImageStorer interface {
-	Store(context.Context, ocispec.Descriptor, images.Store) ([]images.Image, error)
+	Store(context.Context, ocispec.Descriptor, images.Store) (images.Image, error)
 }
 
 // ImageGetter is type which returns an image from an image store
 type ImageGetter interface {
 	Get(context.Context, images.Store) (images.Image, error)
-}
-
-// ImageLookup is a type which returns images from an image store
-// based on names or prefixes
-type ImageLookup interface {
-	Lookup(context.Context, images.Store) ([]images.Image, error)
-}
-
-// ImageExporter exports images to a writer
-type ImageExporter interface {
-	Export(context.Context, content.Store, []images.Image) error
 }
 
 // ImageImporter imports an image into a content store
@@ -97,15 +85,8 @@ type ImageExportStreamer interface {
 }
 
 type ImageUnpacker interface {
-	UnpackPlatforms() []UnpackConfiguration
-}
-
-// UnpackConfiguration specifies the platform and snapshotter to use for resolving
-// the unpack Platform, if snapshotter is not specified the platform default will
-// be used.
-type UnpackConfiguration struct {
-	Platform    ocispec.Platform
-	Snapshotter string
+	// TODO: consider using unpack options
+	UnpackPlatforms() []unpack.Platform
 }
 
 type ProgressFunc func(Progress)

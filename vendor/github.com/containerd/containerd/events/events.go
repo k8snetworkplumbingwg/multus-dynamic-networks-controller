@@ -20,7 +20,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/containerd/typeurl/v2"
+	"github.com/containerd/typeurl"
 )
 
 // Envelope provides the packaging for an event.

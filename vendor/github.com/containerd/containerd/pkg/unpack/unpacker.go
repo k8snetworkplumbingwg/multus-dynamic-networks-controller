@@ -18,11 +18,11 @@ package unpack
 
 import (
 	"context"
-	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -35,7 +35,6 @@ import (
 	"github.com/containerd/containerd/labels"
 	"github.com/containerd/containerd/log"
 	"github.com/containerd/containerd/mount"
-	"github.com/containerd/containerd/pkg/cleanup"
 	"github.com/containerd/containerd/pkg/kmutex"
 	"github.com/containerd/containerd/platforms"
 	"github.com/containerd/containerd/snapshots"
@@ -43,6 +42,7 @@ import (
 	"github.com/opencontainers/go-digest"
 	"github.com/opencontainers/image-spec/identity"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 )
@@ -368,11 +368,11 @@ func (u *Unpacker) unpack(
 
 		select {
 		case <-ctx.Done():
-			cleanup.Do(ctx, abort)
+			abort(context.Background()) // Cleanup context
 			return ctx.Err()
 		case err := <-fetchErr:
 			if err != nil {
-				cleanup.Do(ctx, abort)
+				abort(ctx)
 				return err
 			}
 		case <-fetchC[i-fetchOffset]:
@@ -380,16 +380,16 @@ func (u *Unpacker) unpack(
 
 		diff, err := a.Apply(ctx, desc, mounts, unpack.ApplyOpts...)
 		if err != nil {
-			cleanup.Do(ctx, abort)
+			abort(ctx)
 			return fmt.Errorf("failed to extract layer %s: %w", diffIDs[i], err)
 		}
 		if diff.Digest != diffIDs[i] {
-			cleanup.Do(ctx, abort)
+			abort(ctx)
 			return fmt.Errorf("wrong diff id calculated on extraction %q", diffIDs[i])
 		}
 
 		if err = sn.Commit(ctx, chainID, key, opts...); err != nil {
-			cleanup.Do(ctx, abort)
+			abort(ctx)
 			if errdefs.IsAlreadyExists(err) {
 				return nil
 			}
@@ -436,7 +436,7 @@ func (u *Unpacker) unpack(
 	if err != nil {
 		return err
 	}
-	log.G(ctx).WithFields(log.Fields{
+	log.G(ctx).WithFields(logrus.Fields{
 		"config":  config.Digest,
 		"chainID": chainID,
 	}).Debug("image unpacked")

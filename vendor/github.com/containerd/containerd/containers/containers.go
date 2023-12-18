@@ -20,7 +20,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/containerd/typeurl/v2"
+	"github.com/containerd/typeurl"
 )
 
 // Container represents the set of data pinned by a container. Unless otherwise

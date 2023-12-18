@@ -21,15 +21,14 @@ import (
 	"errors"
 	"io"
 
-	"google.golang.org/protobuf/types/known/anypb"
-
 	transferapi "github.com/containerd/containerd/api/services/transfer/v1"
 	transfertypes "github.com/containerd/containerd/api/types/transfer"
 	"github.com/containerd/containerd/log"
 	"github.com/containerd/containerd/pkg/streaming"
 	"github.com/containerd/containerd/pkg/transfer"
 	tstreaming "github.com/containerd/containerd/pkg/transfer/streaming"
-	"github.com/containerd/typeurl/v2"
+	"github.com/containerd/typeurl"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type proxyTransferrer struct {
@@ -37,7 +36,7 @@ type proxyTransferrer struct {
 	streamCreator streaming.StreamCreator
 }
 
-// NewTransferrer returns a new transferrer which communicates over a GRPC
+// NewTransferrer returns a new transferr which communicates over a GRPC
 // connection using the containerd transfer API
 func NewTransferrer(client transferapi.TransferClient, sc streaming.StreamCreator) transfer.Transferrer {
 	return &proxyTransferrer{

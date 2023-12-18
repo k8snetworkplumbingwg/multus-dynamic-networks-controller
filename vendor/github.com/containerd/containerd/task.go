@@ -43,7 +43,7 @@ import (
 	"github.com/containerd/containerd/rootfs"
 	"github.com/containerd/containerd/runtime/linux/runctypes"
 	"github.com/containerd/containerd/runtime/v2/runc/options"
-	"github.com/containerd/typeurl/v2"
+	"github.com/containerd/typeurl"
 	digest "github.com/opencontainers/go-digest"
 	is "github.com/opencontainers/image-spec/specs-go"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
@@ -140,11 +140,6 @@ type TaskInfo struct {
 	RootFS []mount.Mount
 	// Options hold runtime specific settings for task creation
 	Options interface{}
-	// RuntimePath is an absolute path that can be used to overwrite path
-	// to a shim runtime binary.
-	RuntimePath string
-
-	// runtime is the runtime name for the container, and cannot be changed.
 	runtime string
 }
 
@@ -326,16 +321,7 @@ func (t *task) Delete(ctx context.Context, opts ...ProcessDeleteOpts) (*ExitStat
 		return nil, fmt.Errorf("task must be stopped before deletion: %s: %w", status.Status, errdefs.ErrFailedPrecondition)
 	}
 	if t.io != nil {
-		// io.Wait locks for restored tasks on Windows unless we call
-		// io.Close first (https://github.com/containerd/containerd/issues/5621)
-		// in other cases, preserve the contract and let IO finish before closing
-		if t.client.runtime == fmt.Sprintf("%s.%s", plugin.RuntimePlugin, "windows") {
-			t.io.Close()
-		}
-		// io.Cancel is used to cancel the io goroutine while it is in
-		// fifo-opening state. It does not stop the pipes since these
-		// should be closed on the shim's side, otherwise we might lose
-		// data from the container!
+		t.io.Close()
 		t.io.Cancel()
 		t.io.Wait()
 	}
