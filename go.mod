@@ -7,7 +7,6 @@ require (
 	github.com/containerd/typeurl/v2 v2.1.1
 	github.com/containernetworking/cni v1.1.2
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.4.0
-	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/ginkgo/v2 v2.13.0
 	github.com/onsi/gomega v1.30.0
 	github.com/opencontainers/runtime-spec v1.1.0-rc.1
@@ -34,7 +33,6 @@ require (
 	github.com/docker/go-events v0.0.0-20190806004212-e31b211e4f1c // indirect
 	github.com/emicklei/go-restful/v3 v3.10.1 // indirect
 	github.com/evanphx/json-patch v4.12.0+incompatible // indirect
-	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/go-logr/logr v1.2.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/jsonpointer v0.19.5 // indirect
@@ -61,7 +59,6 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/nxadm/tail v1.4.8 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.0-rc2.0.20221005185240-3a7f492d3f1b // indirect
 	github.com/opencontainers/runc v1.1.5 // indirect
@@ -87,7 +84,6 @@ require (
 	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
-	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20221012153701-172d655c2280 // indirect
