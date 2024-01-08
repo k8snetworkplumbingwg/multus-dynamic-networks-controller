@@ -1,8 +1,10 @@
 package e2e
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"testing"
 	"time"
@@ -153,6 +155,8 @@ var _ = Describe("Multus dynamic networks controller", func() {
 			})
 
 			Context("a network with IPAM", func() {
+				var macAddress string
+
 				const (
 					ifaceToAddWithIPAM = "ens202"
 					ipAddressToAdd     = "10.10.10.111"
@@ -160,10 +164,13 @@ var _ = Describe("Multus dynamic networks controller", func() {
 					netmaskLen         = 24
 				)
 
-				macAddress := "02:03:04:05:06:07"
-
 				BeforeEach(func() {
-					_, err := clients.AddNetAttachDef(macvlanNetworkWitStaticIPAM(ipamNetworkToAdd, namespace, lowerDeviceName()))
+					var err error
+					hardwareAddr, err := generateMacAddress()
+					Expect(err).NotTo(HaveOccurred())
+					macAddress = hardwareAddr.String()
+
+					_, err = clients.AddNetAttachDef(macvlanNetworkWitStaticIPAM(ipamNetworkToAdd, namespace, lowerDeviceName()))
 					Expect(err).NotTo(HaveOccurred())
 					Expect(clients.AddNetworkToPod(pod, &nettypes.NetworkSelectionElement{
 						Name:             ipamNetworkToAdd,
@@ -207,10 +214,17 @@ var _ = Describe("Multus dynamic networks controller", func() {
 		})
 
 		Context("a provisioned pod featuring *only* the cluster's default network", func() {
-			var pod *corev1.Pod
+			var (
+				pod            *corev1.Pod
+				desiredMACAddr string
+			)
 
 			BeforeEach(func() {
 				var err error
+				hardwareAddr, err := generateMacAddress()
+				Expect(err).NotTo(HaveOccurred())
+				desiredMACAddr = hardwareAddr.String()
+
 				pod, err = clients.ProvisionPod(
 					podName,
 					namespace,
@@ -226,8 +240,7 @@ var _ = Describe("Multus dynamic networks controller", func() {
 
 			It("manages to add a new interface to a running pod", func() {
 				const (
-					desiredMACAddr = "02:03:04:05:06:07"
-					ifaceToAdd     = "ens58"
+					ifaceToAdd = "ens58"
 				)
 
 				Expect(clients.AddNetworkToPod(pod, &nettypes.NetworkSelectionElement{
@@ -249,12 +262,12 @@ var _ = Describe("Multus dynamic networks controller", func() {
 		Context("a provisioned pod whose network selection elements do not feature the interface name", func() {
 			const (
 				ifaceToAdd = "ens58"
-				macAddress = "02:03:04:05:06:07"
 			)
 
 			var (
 				pod                      *corev1.Pod
 				initialPodsNetworkStatus []nettypes.NetworkStatus
+				macAddress               string
 			)
 
 			runtimePodNetworkStatus := func() []nettypes.NetworkStatus {
@@ -270,6 +283,10 @@ var _ = Describe("Multus dynamic networks controller", func() {
 
 			BeforeEach(func() {
 				var err error
+				hardwareAddr, err := generateMacAddress()
+				Expect(err).NotTo(HaveOccurred())
+				macAddress = hardwareAddr.String()
+
 				pod, err = clients.ProvisionPod(
 					podName,
 					namespace,
@@ -325,6 +342,19 @@ var _ = Describe("Multus dynamic networks controller", func() {
 		})
 	})
 })
+
+// https://stackoverflow.com/questions/21018729/generate-mac-address-in-go
+func generateMacAddress() (net.HardwareAddr, error) {
+	buf := make([]byte, 6)
+	_, err := rand.Read(buf)
+	if err != nil {
+		return nil, err
+	}
+
+	buf[0] = (buf[0] | 2) & 0xfe // Set local bit, ensure unicast addres
+
+	return buf, nil
+}
 
 func clusterConfig() (*rest.Config, error) {
 	const kubeconfig = "KUBECONFIG"
