@@ -8,7 +8,7 @@ import (
 	"path"
 	"testing"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	cni100 "github.com/containernetworking/cni/pkg/types/100"
