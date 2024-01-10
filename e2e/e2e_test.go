@@ -25,7 +25,7 @@ func TestDynamicNetworksControllerE2E(t *testing.T) {
 	RunSpecs(t, "Multus Dynamic Networks Controller")
 }
 
-var _ = Describe("Multus dynamic networks controller", func() {
+var _ = Describe("Multus dynamic networks controller", Serial, func() {
 	const (
 		namespace   = "ns1"
 		networkName = "tenant-network"
