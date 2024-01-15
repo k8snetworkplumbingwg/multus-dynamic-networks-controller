@@ -26,7 +26,7 @@ import (
 	"github.com/containerd/containerd/errdefs"
 	"github.com/containerd/containerd/protobuf"
 	ptypes "github.com/containerd/containerd/protobuf/types"
-	"github.com/containerd/typeurl/v2"
+	"github.com/containerd/typeurl"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

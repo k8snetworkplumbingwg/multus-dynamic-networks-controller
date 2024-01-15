@@ -34,8 +34,7 @@ import (
 )
 
 const (
-	pullSpanPrefix                 = "pull"
-	convertedDockerSchema1LabelKey = "io.containerd.image/converted-docker-schema1"
+	pullSpanPrefix = "pull"
 )
 
 // Pull downloads the provided content into containerd's content store
@@ -190,10 +189,9 @@ func (c *Client) fetch(ctx context.Context, rCtx *RemoteContext, ref string, lim
 	var (
 		handler images.Handler
 
-		isConvertible         bool
-		originalSchema1Digest string
-		converterFunc         func(context.Context, ocispec.Descriptor) (ocispec.Descriptor, error)
-		limiter               *semaphore.Weighted
+		isConvertible bool
+		converterFunc func(context.Context, ocispec.Descriptor) (ocispec.Descriptor, error)
+		limiter       *semaphore.Weighted
 	)
 
 	if desc.MediaType == images.MediaTypeDockerSchema1Manifest && rCtx.ConvertSchema1 {
@@ -206,8 +204,6 @@ func (c *Client) fetch(ctx context.Context, rCtx *RemoteContext, ref string, lim
 		converterFunc = func(ctx context.Context, _ ocispec.Descriptor) (ocispec.Descriptor, error) {
 			return schema1Converter.Convert(ctx)
 		}
-
-		originalSchema1Digest = desc.Digest.String()
 	} else {
 		// Get all the children for a descriptor
 		childrenHandler := images.ChildrenHandler(store)
@@ -272,13 +268,6 @@ func (c *Client) fetch(ctx context.Context, rCtx *RemoteContext, ref string, lim
 		if desc, err = converterFunc(ctx, desc); err != nil {
 			return images.Image{}, err
 		}
-	}
-
-	if originalSchema1Digest != "" {
-		if rCtx.Labels == nil {
-			rCtx.Labels = make(map[string]string)
-		}
-		rCtx.Labels[convertedDockerSchema1LabelKey] = originalSchema1Digest
 	}
 
 	return images.Image{

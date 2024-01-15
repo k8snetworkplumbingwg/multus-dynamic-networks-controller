@@ -49,7 +49,7 @@ func WithRootFS(mounts []mount.Mount) NewTaskOpts {
 // instead of resolving it from runtime name.
 func WithRuntimePath(absRuntimePath string) NewTaskOpts {
 	return func(ctx context.Context, client *Client, info *TaskInfo) error {
-		info.RuntimePath = absRuntimePath
+		info.runtime = absRuntimePath
 		return nil
 	}
 }

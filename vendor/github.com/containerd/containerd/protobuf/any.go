@@ -17,7 +17,7 @@
 package protobuf
 
 import (
-	"github.com/containerd/typeurl/v2"
+	"github.com/containerd/typeurl"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 

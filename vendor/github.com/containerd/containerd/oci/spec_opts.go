@@ -121,17 +121,6 @@ func setCapabilities(s *Spec) {
 	}
 }
 
-// ensureAdditionalGids ensures that the primary GID is also included in the additional GID list.
-func ensureAdditionalGids(s *Spec) {
-	setProcess(s)
-	for _, f := range s.Process.User.AdditionalGids {
-		if f == s.Process.User.GID {
-			return
-		}
-	}
-	s.Process.User.AdditionalGids = append([]uint32{s.Process.User.GID}, s.Process.User.AdditionalGids...)
-}
-
 // WithDefaultSpec returns a SpecOpts that will populate the spec with default
 // values.
 //
@@ -597,9 +586,7 @@ func WithNamespacedCgroup() SpecOpts {
 //	user, uid, user:group, uid:gid, uid:group, user:gid
 func WithUser(userstr string) SpecOpts {
 	return func(ctx context.Context, client Client, c *containers.Container, s *Spec) error {
-		defer ensureAdditionalGids(s)
 		setProcess(s)
-		s.Process.User.AdditionalGids = nil
 
 		// For LCOW it's a bit harder to confirm that the user actually exists on the host as a rootfs isn't
 		// mounted on the host and shared into the guest, but rather the rootfs is constructed entirely in the
@@ -607,9 +594,7 @@ func WithUser(userstr string) SpecOpts {
 		// The `Username` field on the runtime spec is marked by Platform as only for Windows, and in this case it
 		// *is* being set on a Windows host at least, but will be used as a temporary holding spot until the guest
 		// can use the string to perform these same operations to grab the uid:gid inside.
-		//
-		// Mounts are not supported on Darwin, so using the same workaround.
-		if (s.Windows != nil && s.Linux != nil) || runtime.GOOS == "darwin" {
+		if s.Windows != nil && s.Linux != nil {
 			s.Process.User.Username = userstr
 			return nil
 		}
@@ -683,11 +668,8 @@ func WithUser(userstr string) SpecOpts {
 				return err
 			}
 
-			// Use a read-only mount when trying to get user/group information
-			// from the container's rootfs. Since the option does read operation
-			// only, we append ReadOnly mount option to prevent the Linux kernel
-			// from syncing whole filesystem in umount syscall.
-			return mount.WithReadonlyTempMount(ctx, mounts, f)
+			mounts = tryReadonlyMounts(mounts)
+			return mount.WithTempMount(ctx, mounts, f)
 		default:
 			return fmt.Errorf("invalid USER value %s", userstr)
 		}
@@ -697,9 +679,7 @@ func WithUser(userstr string) SpecOpts {
 // WithUIDGID allows the UID and GID for the Process to be set
 func WithUIDGID(uid, gid uint32) SpecOpts {
 	return func(_ context.Context, _ Client, _ *containers.Container, s *Spec) error {
-		defer ensureAdditionalGids(s)
 		setProcess(s)
-		s.Process.User.AdditionalGids = nil
 		s.Process.User.UID = uid
 		s.Process.User.GID = gid
 		return nil
@@ -712,9 +692,7 @@ func WithUIDGID(uid, gid uint32) SpecOpts {
 // additionally sets the gid to 0, and does not return an error.
 func WithUserID(uid uint32) SpecOpts {
 	return func(ctx context.Context, client Client, c *containers.Container, s *Spec) (err error) {
-		defer ensureAdditionalGids(s)
 		setProcess(s)
-		s.Process.User.AdditionalGids = nil
 		setUser := func(root string) error {
 			user, err := UserFromPath(root, func(u user.User) bool {
 				return u.Uid == int(uid)
@@ -747,11 +725,8 @@ func WithUserID(uid uint32) SpecOpts {
 			return err
 		}
 
-		// Use a read-only mount when trying to get user/group information
-		// from the container's rootfs. Since the option does read operation
-		// only, we append ReadOnly mount option to prevent the Linux kernel
-		// from syncing whole filesystem in umount syscall.
-		return mount.WithReadonlyTempMount(ctx, mounts, setUser)
+		mounts = tryReadonlyMounts(mounts)
+		return mount.WithTempMount(ctx, mounts, setUser)
 	}
 }
 
@@ -763,9 +738,7 @@ func WithUserID(uid uint32) SpecOpts {
 // the container.
 func WithUsername(username string) SpecOpts {
 	return func(ctx context.Context, client Client, c *containers.Container, s *Spec) (err error) {
-		defer ensureAdditionalGids(s)
 		setProcess(s)
-		s.Process.User.AdditionalGids = nil
 		if s.Linux != nil {
 			setUser := func(root string) error {
 				user, err := UserFromPath(root, func(u user.User) bool {
@@ -795,11 +768,8 @@ func WithUsername(username string) SpecOpts {
 				return err
 			}
 
-			// Use a read-only mount when trying to get user/group information
-			// from the container's rootfs. Since the option does read operation
-			// only, we append ReadOnly mount option to prevent the Linux kernel
-			// from syncing whole filesystem in umount syscall.
-			return mount.WithReadonlyTempMount(ctx, mounts, setUser)
+			mounts = tryReadonlyMounts(mounts)
+			return mount.WithTempMount(ctx, mounts, setUser)
 		} else if s.Windows != nil {
 			s.Process.User.Username = username
 		} else {
@@ -819,9 +789,7 @@ func WithAdditionalGIDs(userstr string) SpecOpts {
 			return nil
 		}
 		setProcess(s)
-		s.Process.User.AdditionalGids = nil
 		setAdditionalGids := func(root string) error {
-			defer ensureAdditionalGids(s)
 			var username string
 			uid, err := strconv.Atoi(userstr)
 			if err == nil {
@@ -877,11 +845,8 @@ func WithAdditionalGIDs(userstr string) SpecOpts {
 			return err
 		}
 
-		// Use a read-only mount when trying to get user/group information
-		// from the container's rootfs. Since the option does read operation
-		// only, we append ReadOnly mount option to prevent the Linux kernel
-		// from syncing whole filesystem in umount syscall.
-		return mount.WithReadonlyTempMount(ctx, mounts, setAdditionalGids)
+		mounts = tryReadonlyMounts(mounts)
+		return mount.WithTempMount(ctx, mounts, setAdditionalGids)
 	}
 }
 
@@ -895,7 +860,6 @@ func WithAppendAdditionalGroups(groups ...string) SpecOpts {
 		}
 		setProcess(s)
 		setAdditionalGids := func(root string) error {
-			defer ensureAdditionalGids(s)
 			gpath, err := fs.RootPath(root, "/etc/group")
 			if err != nil {
 				return err
@@ -942,11 +906,8 @@ func WithAppendAdditionalGroups(groups ...string) SpecOpts {
 			return err
 		}
 
-		// Use a read-only mount when trying to get user/group information
-		// from the container's rootfs. Since the option does read operation
-		// only, we append ReadOnly mount option to prevent the Linux kernel
-		// from syncing whole filesystem in umount syscall.
-		return mount.WithReadonlyTempMount(ctx, mounts, setAdditionalGids)
+		mounts = tryReadonlyMounts(mounts)
+		return mount.WithTempMount(ctx, mounts, setAdditionalGids)
 	}
 }
 
@@ -1441,6 +1402,24 @@ func WithDevShmSize(kb int64) SpecOpts {
 	}
 }
 
+// tryReadonlyMounts is used by the options which are trying to get user/group
+// information from container's rootfs. Since the option does read operation
+// only, this helper will append ReadOnly mount option to prevent linux kernel
+// from syncing whole filesystem in umount syscall.
+//
+// TODO(fuweid):
+//
+// Currently, it only works for overlayfs. I think we can apply it to other
+// kinds of filesystem. Maybe we can return `ro` option by `snapshotter.Mount`
+// API, when the caller passes that experimental annotation
+// `containerd.io/snapshot/readonly.mount` something like that.
+func tryReadonlyMounts(mounts []mount.Mount) []mount.Mount {
+	if len(mounts) == 1 && mounts[0].Type == "overlay" {
+		mounts[0].Options = append(mounts[0].Options, "ro")
+	}
+	return mounts
+}
+
 // WithWindowsDevice adds a device exposed to a Windows (WCOW or LCOW) Container
 func WithWindowsDevice(idType, id string) SpecOpts {
 	return func(_ context.Context, _ Client, _ *containers.Container, s *Spec) error {
@@ -1451,173 +1430,6 @@ func WithWindowsDevice(idType, id string) SpecOpts {
 			s.Windows = &specs.Windows{}
 		}
 		s.Windows.Devices = append(s.Windows.Devices, specs.WindowsDevice{IDType: idType, ID: id})
-		return nil
-	}
-}
-
-// WithMemorySwap sets the container's swap in bytes
-func WithMemorySwap(swap int64) SpecOpts {
-	return func(ctx context.Context, _ Client, c *containers.Container, s *Spec) error {
-		setResources(s)
-		if s.Linux.Resources.Memory == nil {
-			s.Linux.Resources.Memory = &specs.LinuxMemory{}
-		}
-		s.Linux.Resources.Memory.Swap = &swap
-		return nil
-	}
-}
-
-// WithPidsLimit sets the container's pid limit or maximum
-func WithPidsLimit(limit int64) SpecOpts {
-	return func(ctx context.Context, _ Client, c *containers.Container, s *Spec) error {
-		setResources(s)
-		if s.Linux.Resources.Pids == nil {
-			s.Linux.Resources.Pids = &specs.LinuxPids{}
-		}
-		s.Linux.Resources.Pids.Limit = limit
-		return nil
-	}
-}
-
-// WithBlockIO sets the container's blkio parameters
-func WithBlockIO(blockio *specs.LinuxBlockIO) SpecOpts {
-	return func(ctx context.Context, _ Client, c *containers.Container, s *Spec) error {
-		setResources(s)
-		s.Linux.Resources.BlockIO = blockio
-		return nil
-	}
-}
-
-// WithCPUShares sets the container's cpu shares
-func WithCPUShares(shares uint64) SpecOpts {
-	return func(ctx context.Context, _ Client, c *containers.Container, s *Spec) error {
-		setCPU(s)
-		s.Linux.Resources.CPU.Shares = &shares
-		return nil
-	}
-}
-
-// WithCPUs sets the container's cpus/cores for use by the container
-func WithCPUs(cpus string) SpecOpts {
-	return func(ctx context.Context, _ Client, c *containers.Container, s *Spec) error {
-		setCPU(s)
-		s.Linux.Resources.CPU.Cpus = cpus
-		return nil
-	}
-}
-
-// WithCPUsMems sets the container's cpu mems for use by the container
-func WithCPUsMems(mems string) SpecOpts {
-	return func(ctx context.Context, _ Client, c *containers.Container, s *Spec) error {
-		setCPU(s)
-		s.Linux.Resources.CPU.Mems = mems
-		return nil
-	}
-}
-
-// WithCPUCFS sets the container's Completely fair scheduling (CFS) quota and period
-func WithCPUCFS(quota int64, period uint64) SpecOpts {
-	return func(ctx context.Context, _ Client, c *containers.Container, s *Spec) error {
-		setCPU(s)
-		s.Linux.Resources.CPU.Quota = &quota
-		s.Linux.Resources.CPU.Period = &period
-		return nil
-	}
-}
-
-// WithCPURT sets the container's realtime scheduling (RT) runtime and period.
-func WithCPURT(runtime int64, period uint64) SpecOpts {
-	return func(ctx context.Context, _ Client, c *containers.Container, s *Spec) error {
-		setCPU(s)
-		s.Linux.Resources.CPU.RealtimeRuntime = &runtime
-		s.Linux.Resources.CPU.RealtimePeriod = &period
-		return nil
-	}
-}
-
-// WithoutRunMount removes the `/run` inside the spec
-func WithoutRunMount(ctx context.Context, client Client, c *containers.Container, s *Spec) error {
-	return WithoutMounts("/run")(ctx, client, c, s)
-}
-
-// WithRdt sets the container's RDT parameters
-func WithRdt(closID, l3CacheSchema, memBwSchema string) SpecOpts {
-	return func(ctx context.Context, _ Client, c *containers.Container, s *Spec) error {
-		s.Linux.IntelRdt = &specs.LinuxIntelRdt{
-			ClosID:        closID,
-			L3CacheSchema: l3CacheSchema,
-			MemBwSchema:   memBwSchema,
-		}
-		return nil
-	}
-}
-
-// WithWindowsCPUCount sets the `Windows.Resources.CPU.Count` section to the
-// `count` specified.
-func WithWindowsCPUCount(count uint64) SpecOpts {
-	return func(_ context.Context, _ Client, _ *containers.Container, s *Spec) error {
-		setCPUWindows(s)
-		s.Windows.Resources.CPU.Count = &count
-		return nil
-	}
-}
-
-// WithWindowsCPUShares sets the `Windows.Resources.CPU.Shares` section to the
-// `shares` specified.
-func WithWindowsCPUShares(shares uint16) SpecOpts {
-	return func(_ context.Context, _ Client, _ *containers.Container, s *Spec) error {
-		setCPUWindows(s)
-		s.Windows.Resources.CPU.Shares = &shares
-		return nil
-	}
-}
-
-// WithWindowsCPUMaximum sets the `Windows.Resources.CPU.Maximum` section to the
-// `max` specified.
-func WithWindowsCPUMaximum(max uint16) SpecOpts {
-	return func(_ context.Context, _ Client, _ *containers.Container, s *Spec) error {
-		setCPUWindows(s)
-		s.Windows.Resources.CPU.Maximum = &max
-		return nil
-	}
-}
-
-// WithWindowsIgnoreFlushesDuringBoot sets `Windows.IgnoreFlushesDuringBoot`.
-func WithWindowsIgnoreFlushesDuringBoot() SpecOpts {
-	return func(_ context.Context, _ Client, _ *containers.Container, s *Spec) error {
-		if s.Windows == nil {
-			s.Windows = &specs.Windows{}
-		}
-		s.Windows.IgnoreFlushesDuringBoot = true
-		return nil
-	}
-}
-
-// WithWindowNetworksAllowUnqualifiedDNSQuery sets `Windows.Network.AllowUnqualifiedDNSQuery`.
-func WithWindowNetworksAllowUnqualifiedDNSQuery() SpecOpts {
-	return func(_ context.Context, _ Client, _ *containers.Container, s *Spec) error {
-		if s.Windows == nil {
-			s.Windows = &specs.Windows{}
-		}
-		if s.Windows.Network == nil {
-			s.Windows.Network = &specs.WindowsNetwork{}
-		}
-
-		s.Windows.Network.AllowUnqualifiedDNSQuery = true
-		return nil
-	}
-}
-
-// WithWindowsNetworkNamespace sets the network namespace for a Windows container.
-func WithWindowsNetworkNamespace(ns string) SpecOpts {
-	return func(_ context.Context, _ Client, _ *containers.Container, s *Spec) error {
-		if s.Windows == nil {
-			s.Windows = &specs.Windows{}
-		}
-		if s.Windows.Network == nil {
-			s.Windows.Network = &specs.WindowsNetwork{}
-		}
-		s.Windows.Network.NetworkNamespace = ns
 		return nil
 	}
 }

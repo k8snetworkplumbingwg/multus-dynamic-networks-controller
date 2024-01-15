@@ -32,8 +32,7 @@ import (
 	"github.com/containerd/containerd/images"
 )
 
-// Install a binary image into the opt service.
-// More info: https://github.com/containerd/containerd/blob/main/docs/managed-opt.md.
+// Install a binary image into the opt service
 func (c *Client) Install(ctx context.Context, image Image, opts ...InstallOpts) error {
 	var config InstallConfig
 	for _, o := range opts {
