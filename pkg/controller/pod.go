@@ -200,8 +200,18 @@ func (pnc *PodNetworksController) processNextWorkItem() bool {
 		return true
 	}
 
-	indexedNetworkSelectionElements := annotations.IndexPodNetworkSelectionElements(pod)
-	indexedNetworkStatus := annotations.IndexNetworkStatusIgnoringDefaultNetwork(pod)
+	networkSelectionElements, err := annotations.PodNetworkSelectionElements(pod) // ignore error as other functions below?
+	if err != nil {
+		klog.Errorf("failed to get NetworkSelectionElements: %v", err)
+		return true
+	}
+	networkStatus, err := annotations.PodDynamicNetworkStatus(pod)
+	if err != nil {
+		klog.Errorf("failed to get NetworkStatus: %v", err)
+		return true
+	}
+	indexedNetworkSelectionElements := annotations.IndexNetworkSelectionElements(networkSelectionElements)
+	indexedNetworkStatus := annotations.IndexNetworkStatus(networkStatus)
 
 	netnsPath, err := pnc.netnsPath(pod)
 	if err != nil {
@@ -209,10 +219,16 @@ func (pnc *PodNetworksController) processNextWorkItem() bool {
 		return true
 	}
 
+	// The order in which the attachments will be added must be maintained.
+	// Having a deterministic order helps for troubleshooting and testing.
+	// It is also probably required by CNI due, example:
+	// A macvlan (net-1) is added as an attachment, and a VLAN (net-2) is added as a separated
+	// attachment and has linkInContainer set to true and master set to net-1. If the VLAN is added
+	// before the macvlan, then it will fail.
 	var attachmentsToAdd []nadv1.NetworkSelectionElement
-	for key := range indexedNetworkSelectionElements {
-		if _, wasFound := indexedNetworkStatus[key]; !wasFound {
-			attachmentsToAdd = append(attachmentsToAdd, indexedNetworkSelectionElements[key])
+	for i := range networkSelectionElements {
+		if _, wasFound := indexedNetworkStatus[annotations.NetworkSelectionElementIndexKey(networkSelectionElements[i])]; !wasFound {
+			attachmentsToAdd = append(attachmentsToAdd, networkSelectionElements[i])
 		}
 	}
 
@@ -230,14 +246,17 @@ func (pnc *PodNetworksController) processNextWorkItem() bool {
 		}
 	}
 
+	// The order in which the attachments will be removed doesn't have to be maintained since CNI DEL must be very permissive
+	// in case of an error (e.g.: Interface already deleted by another attachement should not produce any error).
+	// For troubleshooting and testing, having a deterministic behavior is preferred.
 	var attachmentsToRemove []nadv1.NetworkSelectionElement
-	for key := range indexedNetworkStatus {
-		networkNamespace, networkName, _ := separateNamespaceAndName(key)
-		if _, wasFound := indexedNetworkSelectionElements[key]; !wasFound {
+	for i := range networkStatus {
+		networkNamespace, networkName, _ := separateNamespaceAndName(annotations.NetworkStatusIndexKey(networkStatus[i]))
+		if _, wasFound := indexedNetworkSelectionElements[annotations.NetworkStatusIndexKey(networkStatus[i])]; !wasFound {
 			attachmentsToRemove = append(attachmentsToRemove, nadv1.NetworkSelectionElement{
 				Name:             networkName,
 				Namespace:        networkNamespace,
-				InterfaceRequest: indexedNetworkStatus[key].Interface,
+				InterfaceRequest: networkStatus[i].Interface,
 			})
 		}
 	}
@@ -249,11 +268,11 @@ func (pnc *PodNetworksController) processNextWorkItem() bool {
 			Type:        remove,
 			PodNetNS:    netnsPath,
 		})
+		results = append(results, res...)
 		if err != nil {
 			klog.Errorf("error removing attachments: %v", err)
 			return true
 		}
-		results = append(results, res...)
 	}
 
 	return true
@@ -338,15 +357,20 @@ func (pnc *PodNetworksController) addNetworks(dynamicAttachmentRequest *DynamicA
 	for i := range dynamicAttachmentRequest.Attachments {
 		netToAdd := dynamicAttachmentRequest.Attachments[i]
 		klog.Infof("network to add: %v", netToAdd)
+		failedAddingEvent := func() {
+			pnc.Eventf(pod, corev1.EventTypeWarning, "FailedAddingInterface", failedAddingIfaceEventFormat(pod, &netToAdd))
+		}
 
 		netAttachDef, err := pnc.netAttachDefLister.NetworkAttachmentDefinitions(netToAdd.Namespace).Get(netToAdd.Name)
 		if err != nil {
+			failedAddingEvent()
 			klog.Errorf("failed to access the networkattachmentdefinition %s/%s: %v", netToAdd.Namespace, netToAdd.Name, err)
-			return nil, err
+			return attachmentResults, err
 		}
 		netAttachDefWithDefaults, err := serializeNetAttachDefWithDefaults(netAttachDef)
 		if err != nil {
-			return nil, err
+			failedAddingEvent()
+			return attachmentResults, err
 		}
 		response, err := pnc.multusClient.InvokeDelegate(
 			multusapi.CreateDelegateRequest(
@@ -362,7 +386,8 @@ func (pnc *PodNetworksController) addNetworks(dynamicAttachmentRequest *DynamicA
 			))
 
 		if err != nil {
-			return nil, fmt.Errorf("failed to ADD delegate: %v", err)
+			failedAddingEvent()
+			return attachmentResults, fmt.Errorf("failed to ADD delegate: %v", err)
 		}
 		klog.Infof("response: %v", *response.Result)
 
@@ -388,15 +413,21 @@ func (pnc *PodNetworksController) removeNetworks(
 		netToRemove := dynamicAttachmentRequest.Attachments[i]
 		klog.Infof("network to remove: %v", dynamicAttachmentRequest.Attachments[i])
 
+		failedRemovingEvent := func() {
+			pnc.Eventf(pod, corev1.EventTypeWarning, "FailedRemovingInterface", failedRemovingIfaceEventFormat(pod, &netToRemove))
+		}
+
 		netAttachDef, err := pnc.netAttachDefLister.NetworkAttachmentDefinitions(netToRemove.Namespace).Get(netToRemove.Name)
 		if err != nil {
+			failedRemovingEvent()
 			klog.Errorf("failed to access the network-attachment-definition %s/%s: %v", netToRemove.Namespace, netToRemove.Name, err)
-			return nil, err
+			return attachmentResults, err
 		}
 
 		netAttachDefWithDefaults, err := serializeNetAttachDefWithDefaults(netAttachDef)
 		if err != nil {
-			return nil, err
+			failedRemovingEvent()
+			return attachmentResults, err
 		}
 		_, err = pnc.multusClient.InvokeDelegate(
 			multusapi.CreateDelegateRequest(
@@ -411,7 +442,8 @@ func (pnc *PodNetworksController) removeNetworks(
 				interfaceAttributes(netToRemove),
 			))
 		if err != nil {
-			return nil, fmt.Errorf("failed to remove delegate: %v", err)
+			failedRemovingEvent()
+			return attachmentResults, fmt.Errorf("failed to remove delegate: %v", err)
 		}
 
 		attachmentResults = append(attachmentResults, *annotations.NewAttachmentResult(&netToRemove, nil))
@@ -472,9 +504,36 @@ func addIfaceEventFormat(pod *corev1.Pod, network *nadv1.NetworkSelectionElement
 	)
 }
 
+func failedAddingIfaceEventFormat(pod *corev1.Pod, network *nadv1.NetworkSelectionElement) string {
+	attributes := ""
+	if len(network.IPRequest) > 0 || network.MacRequest != "" || network.CNIArgs != nil {
+		attributes = fmt.Sprintf("(ips: %v, mac: %s, cni-args: %v)",
+			network.IPRequest,
+			network.MacRequest,
+			network.CNIArgs,
+		)
+	}
+	return fmt.Sprintf(
+		"pod [%s]: failed adding interface %s to network: %s%s",
+		annotations.NamespacedName(pod.GetNamespace(), pod.GetName()),
+		network.InterfaceRequest,
+		network.Name,
+		attributes,
+	)
+}
+
 func removeIfaceEventFormat(pod *corev1.Pod, network *nadv1.NetworkSelectionElement) string {
 	return fmt.Sprintf(
 		"pod [%s]: removed interface %s from network: %s",
+		annotations.NamespacedName(pod.GetNamespace(), pod.GetName()),
+		network.InterfaceRequest,
+		network.Name,
+	)
+}
+
+func failedRemovingIfaceEventFormat(pod *corev1.Pod, network *nadv1.NetworkSelectionElement) string {
+	return fmt.Sprintf(
+		"pod [%s]: failed removing interface %s from network: %s",
 		annotations.NamespacedName(pod.GetNamespace(), pod.GetName()),
 		network.InterfaceRequest,
 		network.Name,
