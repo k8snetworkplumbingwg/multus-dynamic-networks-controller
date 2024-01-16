@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -350,6 +351,239 @@ var _ = Describe("Dynamic Attachment controller", func() {
 						}
 						return status, nil
 					}).Should(ConsistOf(ifaceStatusForDefaultNamespace(networkToAdd, "net1", macAddr)))
+				})
+			})
+
+			When("a wrong attachment is added to the pod's network annotations with a following correct attachement", func() {
+				JustBeforeEach(func() {
+					pod = updatePodSpec(pod)
+					netSelectionElements := append(generateNetworkSelectionElements(namespace, networkName),
+						[]nad.NetworkSelectionElement{
+							{
+								Name:             networkToAdd,
+								Namespace:        namespace,
+								InterfaceRequest: "net-non-existing",
+							},
+							{
+								Name:             networkToAdd,
+								Namespace:        namespace,
+								InterfaceRequest: "net1",
+							},
+						}...,
+					)
+					serelizedNetSelectionElements, _ := json.Marshal(netSelectionElements)
+					pod.Annotations[nad.NetworkAttachmentAnnot] = string(serelizedNetSelectionElements)
+					var err error
+					_, err = k8sClient.CoreV1().Pods(namespace).UpdateStatus(
+						context.TODO(),
+						pod,
+						metav1.UpdateOptions{})
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("an `FailedAddingInterface` event is seen, no `AddedInterface` event is seen and no changes the status", func() {
+					expectedEventPayload := fmt.Sprintf(
+						"Warning FailedAddingInterface pod [%s]: failed adding interface %s to network: %s",
+						annotations.NamespacedName(namespace, podName),
+						"net-non-existing",
+						networkToAdd,
+					)
+					Eventually(<-eventRecorder.Events).Should(Equal(expectedEventPayload))
+
+					// reconciliation requeued without adding the next interface (net1).
+					expectedEventPayload = fmt.Sprintf(
+						"Warning FailedAddingInterface pod [%s]: failed adding interface %s to network: %s",
+						annotations.NamespacedName(namespace, podName),
+						"net-non-existing",
+						networkToAdd,
+					)
+					Eventually(<-eventRecorder.Events).Should(Equal(expectedEventPayload))
+
+					// This is not in a separate "It" since there is no change and it should wait for the events
+					// No pod network-status is added since the first one failed.
+					Consistently(func() ([]nad.NetworkStatus, error) {
+						updatedPod, err := k8sClient.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+						if err != nil {
+							return nil, err
+						}
+						status, err := annotations.PodDynamicNetworkStatus(updatedPod)
+						if err != nil {
+							return nil, err
+						}
+						return status, nil
+					}).WithTimeout(time.Second).WithPolling(100 * time.Millisecond).Should(ConsistOf(
+						ifaceStatusForDefaultNamespace(networkName, "net0", "")))
+				})
+			})
+
+			When("a wrong attachment is added to the pod's network annotations after a correct attachement", func() {
+				JustBeforeEach(func() {
+					var err error
+					pod = updatePodSpec(pod)
+					netSelectionElements := append(generateNetworkSelectionElements(namespace, networkName),
+						[]nad.NetworkSelectionElement{
+							{
+								Name:             networkToAdd,
+								Namespace:        namespace,
+								InterfaceRequest: "net1",
+							},
+							{
+								Name:             networkToAdd,
+								Namespace:        namespace,
+								InterfaceRequest: "net-non-existing",
+							},
+						}...,
+					)
+					serelizedNetSelectionElements, _ := json.Marshal(netSelectionElements)
+					pod.Annotations[nad.NetworkAttachmentAnnot] = string(serelizedNetSelectionElements)
+					_, err = k8sClient.CoreV1().Pods(namespace).UpdateStatus(
+						context.TODO(),
+						pod,
+						metav1.UpdateOptions{})
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("an `AddedInterface` event is seen, followed by a `FailedAddingInterface` event", func() {
+					expectedEventPayload := fmt.Sprintf(
+						"Normal AddedInterface pod [%s]: added interface %s to network: %s",
+						annotations.NamespacedName(namespace, podName),
+						"net1",
+						networkToAdd,
+					)
+					Eventually(<-eventRecorder.Events).Should(Equal(expectedEventPayload))
+
+					expectedEventPayload = fmt.Sprintf(
+						"Warning FailedAddingInterface pod [%s]: failed adding interface %s to network: %s",
+						annotations.NamespacedName(namespace, podName),
+						"net-non-existing",
+						networkToAdd,
+					)
+					Eventually(<-eventRecorder.Events).Should(Equal(expectedEventPayload))
+				})
+
+				It("the pod network-status is updated with only the first added network attachment", func() {
+					Eventually(func() ([]nad.NetworkStatus, error) {
+						updatedPod, err := k8sClient.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+						if err != nil {
+							return nil, err
+						}
+						status, err := annotations.PodDynamicNetworkStatus(updatedPod)
+						if err != nil {
+							return nil, err
+						}
+						return status, nil
+					}).Should(ConsistOf(
+						ifaceStatusForDefaultNamespace(networkName, "net0", ""),
+						ifaceStatusForDefaultNamespace(networkToAdd, "net1", macAddr)))
+				})
+			})
+
+			When("an attachment is removed followed by a failing removal of another attachment", func() {
+				JustBeforeEach(func() {
+					pod = updatePodSpec(pod)
+					pod.Annotations[nad.NetworkStatusAnnot] =
+						`[
+							{
+								"name": "default/tiny-net",
+								"interface": "net0",
+								"dns": {}
+							},
+							{
+								"name": "default/tiny-net-2",
+								"interface": "net1",
+								"mac": "02:03:04:05:06:07",
+								"dns": {}
+							}
+						]`
+					_, err := k8sClient.CoreV1().Pods(namespace).UpdateStatus(
+						context.TODO(),
+						updatePodSpec(pod),
+						metav1.UpdateOptions{})
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("the pod network-status is updated with only the first network status removed", func() {
+					Eventually(func() ([]nad.NetworkStatus, error) {
+						updatedPod, err := k8sClient.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+						if err != nil {
+							return nil, err
+						}
+						status, err := annotations.PodDynamicNetworkStatus(updatedPod)
+						if err != nil {
+							return nil, err
+						}
+						return status, nil
+					}).Should(ConsistOf(
+						ifaceStatusForDefaultNamespace(networkToAdd, "net1", macAddr)))
+				})
+
+				It("a `RemovedInterface` event is seen followed by a `FailedRemovingInterface` event", func() {
+					expectedEventPayload := fmt.Sprintf(
+						"Normal RemovedInterface pod [%s]: removed interface %s from network: %s",
+						annotations.NamespacedName(namespace, podName),
+						"net0",
+						networkName,
+					)
+					Eventually(<-eventRecorder.Events).Should(Equal(expectedEventPayload))
+
+					expectedEventPayload = fmt.Sprintf(
+						"Warning FailedRemovingInterface pod [%s]: failed removing interface %s from network: %s",
+						annotations.NamespacedName(namespace, podName),
+						"net1",
+						networkToAdd,
+					)
+					Eventually(<-eventRecorder.Events).Should(Equal(expectedEventPayload))
+				})
+			})
+
+			When("an attachment is removed after a failing removal of another attachment", func() {
+				JustBeforeEach(func() {
+					pod = updatePodSpec(pod)
+					pod.Annotations[nad.NetworkStatusAnnot] =
+						`[
+							{
+								"name": "default/tiny-net-2",
+								"interface": "net1",
+								"mac": "02:03:04:05:06:07",
+								"dns": {}
+							},
+							{
+								"name": "default/tiny-net",
+								"interface": "net0",
+								"dns": {}
+							}
+						]`
+					_, err := k8sClient.CoreV1().Pods(namespace).UpdateStatus(
+						context.TODO(),
+						updatePodSpec(pod),
+						metav1.UpdateOptions{})
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("the pod network-status has not changed", func() {
+					Eventually(func() ([]nad.NetworkStatus, error) {
+						updatedPod, err := k8sClient.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+						if err != nil {
+							return nil, err
+						}
+						status, err := annotations.PodDynamicNetworkStatus(updatedPod)
+						if err != nil {
+							return nil, err
+						}
+						return status, nil
+					}).Should(ConsistOf(
+						ifaceStatusForDefaultNamespace(networkName, "net0", ""),
+						ifaceStatusForDefaultNamespace(networkToAdd, "net1", macAddr)))
+				})
+
+				It("a `RemovedInterface` event is seen", func() {
+					expectedEventPayload := fmt.Sprintf(
+						"Warning FailedRemovingInterface pod [%s]: failed removing interface %s from network: %s",
+						annotations.NamespacedName(namespace, podName),
+						"net1",
+						networkToAdd,
+					)
+					Eventually(<-eventRecorder.Events).Should(Equal(expectedEventPayload))
 				})
 			})
 

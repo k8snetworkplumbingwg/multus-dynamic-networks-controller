@@ -70,7 +70,7 @@ func NamespacedName(podNamespace string, podName string) string {
 func IndexNetworkStatus(currentPodNetworkStatus []nettypes.NetworkStatus) map[string]nettypes.NetworkStatus {
 	indexedNetworkStatus := map[string]nettypes.NetworkStatus{}
 	for i := range currentPodNetworkStatus {
-		indexedNetworkStatus[networkStatusIndexKey(currentPodNetworkStatus[i])] = currentPodNetworkStatus[i]
+		indexedNetworkStatus[NetworkStatusIndexKey(currentPodNetworkStatus[i])] = currentPodNetworkStatus[i]
 	}
 	return indexedNetworkStatus
 }
@@ -83,13 +83,13 @@ func indexNetworkStatusWithIgnorePredicate(pod *corev1.Pod, p IgnoreStatusPredic
 	indexedNetworkStatus := map[string]nettypes.NetworkStatus{}
 	for i := range currentPodNetworkStatus {
 		if !p(currentPodNetworkStatus[i]) {
-			indexedNetworkStatus[networkStatusIndexKey(currentPodNetworkStatus[i])] = currentPodNetworkStatus[i]
+			indexedNetworkStatus[NetworkStatusIndexKey(currentPodNetworkStatus[i])] = currentPodNetworkStatus[i]
 		}
 	}
 	return indexedNetworkStatus
 }
 
-func networkStatusIndexKey(networkStatus nettypes.NetworkStatus) string {
+func NetworkStatusIndexKey(networkStatus nettypes.NetworkStatus) string {
 	return fmt.Sprintf(
 		"%s/%s",
 		networkStatus.Name,

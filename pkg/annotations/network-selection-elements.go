@@ -137,17 +137,28 @@ func parsePodNetworkObjectName(podnetwork string) (string, string, string, error
 }
 
 func IndexPodNetworkSelectionElements(pod *corev1.Pod) map[string]nadv1.NetworkSelectionElement {
-	currentPodNetworkSelectionElements, err := networkSelectionElements(pod.GetAnnotations(), pod.GetNamespace())
+	currentPodNetworkSelectionElements, err := PodNetworkSelectionElements(pod)
 	if err != nil {
-		klog.Errorf("could not read pod's network selection elements: %v", *pod)
 		return map[string]nadv1.NetworkSelectionElement{}
 	}
+	return IndexNetworkSelectionElements(currentPodNetworkSelectionElements)
+}
+
+func IndexNetworkSelectionElements(networkSelectionElements []nadv1.NetworkSelectionElement) map[string]nadv1.NetworkSelectionElement {
 	indexedNetworkSelectionElements := make(map[string]nadv1.NetworkSelectionElement)
-	for k := range currentPodNetworkSelectionElements {
-		netSelectionElement := currentPodNetworkSelectionElements[k]
+	for k := range networkSelectionElements {
+		netSelectionElement := networkSelectionElements[k]
 		indexedNetworkSelectionElements[NetworkSelectionElementIndexKey(netSelectionElement)] = netSelectionElement
 	}
 	return indexedNetworkSelectionElements
+}
+
+func PodNetworkSelectionElements(pod *corev1.Pod) ([]nadv1.NetworkSelectionElement, error) {
+	currentPodNetworkSelectionElements, err := networkSelectionElements(pod.GetAnnotations(), pod.GetNamespace())
+	if err != nil {
+		return nil, fmt.Errorf("could not read pod's network selection elements %s: %v", podNameAndNs(pod), err)
+	}
+	return currentPodNetworkSelectionElements, nil
 }
 
 func networkSelectionElements(podAnnotations map[string]string, podNamespace string) ([]nadv1.NetworkSelectionElement, error) {
