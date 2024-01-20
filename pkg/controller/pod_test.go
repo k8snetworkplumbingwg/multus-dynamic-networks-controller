@@ -587,6 +587,35 @@ var _ = Describe("Dynamic Attachment controller", func() {
 				})
 			})
 
+			When("an attachment status for the default network is added", func() {
+				JustBeforeEach(func() {
+					pod = updatePodSpec(pod)
+					pod.Annotations[nad.NetworkStatusAnnot] = `[{"name":"default/tiny-net","default": true,"interface":"net0","dns":{}}]`
+					_, err := k8sClient.CoreV1().Pods(namespace).UpdateStatus(
+						context.TODO(),
+						updatePodSpec(pod),
+						metav1.UpdateOptions{})
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("the pod network-status has not changed (default network status must be ignored)", func() {
+					defaultNet := ifaceStatusForDefaultNamespace(networkName, "net0", "")
+					defaultNet.Default = true
+
+					Eventually(func() ([]nad.NetworkStatus, error) {
+						updatedPod, err := k8sClient.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+						if err != nil {
+							return nil, err
+						}
+						status, err := annotations.PodDynamicNetworkStatus(updatedPod)
+						if err != nil {
+							return nil, err
+						}
+						return status, nil
+					}).Should(ConsistOf(defaultNet))
+				})
+			})
+
 		})
 	})
 })

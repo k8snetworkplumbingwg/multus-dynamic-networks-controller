@@ -200,14 +200,9 @@ func (pnc *PodNetworksController) processNextWorkItem() bool {
 		return true
 	}
 
-	networkSelectionElements, err := annotations.PodNetworkSelectionElements(pod) // ignore error as other functions below?
+	networkSelectionElements, networkStatus, err := getPodNetworks(pod)
 	if err != nil {
-		klog.Errorf("failed to get NetworkSelectionElements: %v", err)
-		return true
-	}
-	networkStatus, err := annotations.PodDynamicNetworkStatus(pod)
-	if err != nil {
-		klog.Errorf("failed to get NetworkStatus: %v", err)
+		klog.Errorf("failed to get pod networks: %v", err)
 		return true
 	}
 	indexedNetworkSelectionElements := annotations.IndexNetworkSelectionElements(networkSelectionElements)
@@ -587,4 +582,26 @@ func separateNamespaceAndName(namespacedName string) (namespace string, name str
 		return "", "", fmt.Errorf("invalid namespaced name: %s", namespacedName)
 	}
 	return splitNamespacedName[0], splitNamespacedName[1], nil
+}
+
+func getPodNetworks(pod *corev1.Pod) ([]nadv1.NetworkSelectionElement, []nadv1.NetworkStatus, error) {
+	networkSelectionElements, err := annotations.PodNetworkSelectionElements(pod)
+	if err != nil {
+		return nil, nil, err
+	}
+	networkStatus, err := annotations.PodDynamicNetworkStatus(pod)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	networkStatusWithoutDefault := []nadv1.NetworkStatus{}
+
+	for i := range networkStatus {
+		if networkStatus[i].Default {
+			continue
+		}
+		networkStatusWithoutDefault = append(networkStatusWithoutDefault, networkStatus[i])
+	}
+
+	return networkSelectionElements, networkStatusWithoutDefault, err
 }
