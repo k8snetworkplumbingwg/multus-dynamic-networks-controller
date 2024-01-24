@@ -1,4 +1,4 @@
-FROM quay.io/projectquay/golang:1.19 as builder
+FROM quay.io/projectquay/golang:1.21 as builder
 ENV GOPATH=/go
 RUN mkdir -p $GOPATH/src/github.com/maiqueb/multus-dynamic-networks-controller
 WORKDIR $GOPATH/src/github.com/maiqueb/multus-dynamic-networks-controller
