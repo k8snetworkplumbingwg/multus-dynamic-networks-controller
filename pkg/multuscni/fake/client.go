@@ -3,7 +3,7 @@ package fake
 import (
 	"fmt"
 
-	multusapi "gopkg.in/k8snetworkplumbingwg/multus-cni.v3/pkg/server/api"
+	multusapi "gopkg.in/k8snetworkplumbingwg/multus-cni.v4/pkg/server/api"
 )
 
 type NetworkConfig struct {

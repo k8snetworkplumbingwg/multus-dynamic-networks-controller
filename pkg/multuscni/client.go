@@ -11,7 +11,7 @@ import (
 
 	"k8s.io/klog/v2"
 
-	multusapi "gopkg.in/k8snetworkplumbingwg/multus-cni.v3/pkg/server/api"
+	multusapi "gopkg.in/k8snetworkplumbingwg/multus-cni.v4/pkg/server/api"
 )
 
 const (

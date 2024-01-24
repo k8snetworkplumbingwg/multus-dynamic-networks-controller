@@ -23,7 +23,7 @@ import (
 	nadinformers "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/informers/externalversions"
 	nadlisterv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/listers/k8s.cni.cncf.io/v1"
 	nadutils "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/utils"
-	multusapi "gopkg.in/k8snetworkplumbingwg/multus-cni.v3/pkg/server/api"
+	multusapi "gopkg.in/k8snetworkplumbingwg/multus-cni.v4/pkg/server/api"
 
 	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/annotations"
 	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/cri"
@@ -294,12 +294,17 @@ func (pnc *PodNetworksController) handleResult(
 	pod *corev1.Pod,
 	results []annotations.AttachmentResult,
 ) {
+	namespacedPodNameString := "<nil>"
+	if namespacedPodName != nil {
+		namespacedPodNameString = *namespacedPodName
+	}
+
 	if results != nil {
 		updatedStatus, podNetworkStatusUpdateError := annotations.UpdatePodNetworkStatus(pod, results)
 		if podNetworkStatusUpdateError != nil {
 			klog.Errorf(
-				"error computing pod %q updated network status: %v",
-				namespacedPodName,
+				"error computing pod %s updated network status: %v",
+				namespacedPodNameString,
 				podNetworkStatusUpdateError,
 			)
 		}
@@ -309,7 +314,7 @@ func (pnc *PodNetworksController) handleResult(
 			pod,
 			updatedStatus,
 		); setNetworkStatusError != nil {
-			klog.Errorf("error updating pod %q network status: %v", namespacedPodName, setNetworkStatusError)
+			klog.Errorf("error updating pod %s network status: %v", namespacedPodNameString, setNetworkStatusError)
 		}
 	}
 

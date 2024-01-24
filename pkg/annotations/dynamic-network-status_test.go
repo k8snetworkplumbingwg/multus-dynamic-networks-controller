@@ -14,7 +14,7 @@ import (
 
 	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/annotations"
 	nadv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
-	"gopkg.in/k8snetworkplumbingwg/multus-cni.v3/pkg/server/api"
+	"gopkg.in/k8snetworkplumbingwg/multus-cni.v4/pkg/server/api"
 )
 
 type attachmentInfo struct {
