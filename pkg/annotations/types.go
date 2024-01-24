@@ -2,7 +2,7 @@ package annotations
 
 import (
 	nadv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
-	multusapi "gopkg.in/k8snetworkplumbingwg/multus-cni.v3/pkg/server/api"
+	multusapi "gopkg.in/k8snetworkplumbingwg/multus-cni.v4/pkg/server/api"
 )
 
 type AttachmentResult struct {

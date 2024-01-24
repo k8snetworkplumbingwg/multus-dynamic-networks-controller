@@ -12,7 +12,7 @@ import (
 
 	cni100 "github.com/containernetworking/cni/pkg/types/100"
 
-	multusapi "gopkg.in/k8snetworkplumbingwg/multus-cni.v3/pkg/server/api"
+	multusapi "gopkg.in/k8snetworkplumbingwg/multus-cni.v4/pkg/server/api"
 )
 
 func TestController(t *testing.T) {
