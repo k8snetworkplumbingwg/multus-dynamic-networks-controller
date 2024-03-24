@@ -5,30 +5,36 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/cri"
+	"github.com/opencontainers/runtime-spec/specs-go"
 	"google.golang.org/grpc"
 
 	crioruntime "k8s.io/cri-api/pkg/apis/runtime/v1"
-
-	criotypes "github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/cri/crio/types"
+	"k8s.io/kubelet/pkg/types"
 )
 
 type CrioClient struct {
-	cache map[string]string
+	cachePodSandboxID map[string]string // Key: podname.podnamespace, value: podSandboxID
+	cacheNetNs        map[string]string // Key: podSandboxID, value: netns
 }
 
 type ClientOpt func(client *CrioClient)
 
 func NewFakeClient(opts ...ClientOpt) *CrioClient {
-	client := &CrioClient{cache: map[string]string{}}
+	client := &CrioClient{
+		cachePodSandboxID: map[string]string{},
+		cacheNetNs:        map[string]string{},
+	}
 	for _, opt := range opts {
 		opt(client)
 	}
 	return client
 }
 
-func WithCachedContainer(containerID string, netnsPath string) ClientOpt {
+func WithCachedContainer(podName string, podNamespace string, podSandboxID string, netnsPath string) ClientOpt {
 	return func(client *CrioClient) {
-		client.cache[containerID] = netnsPath
+		client.cachePodSandboxID[fmt.Sprintf("%s.%s", podName, podNamespace)] = podSandboxID
+		client.cacheNetNs[podSandboxID] = netnsPath
 	}
 }
 
@@ -60,20 +66,55 @@ func (CrioClient) RemovePodSandbox(
 	return nil, nil
 }
 
-func (CrioClient) PodSandboxStatus(
-	context.Context,
-	*crioruntime.PodSandboxStatusRequest,
-	...grpc.CallOption,
+func (cc CrioClient) PodSandboxStatus(
+	_ context.Context,
+	podSandboxStatusRequest *crioruntime.PodSandboxStatusRequest,
+	_ ...grpc.CallOption,
 ) (*crioruntime.PodSandboxStatusResponse, error) {
-	return nil, nil
+	netnsPath, exists := cc.cacheNetNs[podSandboxStatusRequest.PodSandboxId]
+	if !exists {
+		return nil, nil
+	}
+
+	containerStatus := newContainerStatusResponseWithLinuxNetworkNamespaceInfo(netnsPath)
+	marshalledContainerStatus, err := json.Marshal(&containerStatus)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling the container status: %v", err)
+	}
+
+	return &crioruntime.PodSandboxStatusResponse{
+		Info: map[string]string{"info": string(marshalledContainerStatus)},
+	}, nil
 }
 
-func (CrioClient) ListPodSandbox(
-	context.Context,
-	*crioruntime.ListPodSandboxRequest,
-	...grpc.CallOption,
+func (cc CrioClient) ListPodSandbox(
+	_ context.Context,
+	listPodSandboxRequest *crioruntime.ListPodSandboxRequest,
+	_ ...grpc.CallOption,
 ) (*crioruntime.ListPodSandboxResponse, error) {
-	return nil, nil
+	res := &crioruntime.ListPodSandboxResponse{
+		Items: []*crioruntime.PodSandbox{},
+	}
+
+	podName, exists := listPodSandboxRequest.Filter.LabelSelector[types.KubernetesPodNameLabel]
+	if !exists {
+		return res, nil
+	}
+
+	podNamespace, exists := listPodSandboxRequest.Filter.LabelSelector[types.KubernetesPodNamespaceLabel]
+	if !exists {
+		return res, nil
+	}
+
+	id, exists := cc.cachePodSandboxID[fmt.Sprintf("%s.%s", podName, podNamespace)]
+	if !exists {
+		return res, nil
+	}
+
+	res.Items = append(res.Items, &crioruntime.PodSandbox{
+		Id: id,
+	})
+	return res, nil
 }
 
 func (CrioClient) CreateContainer(
@@ -121,21 +162,7 @@ func (cc CrioClient) ContainerStatus(
 	in *crioruntime.ContainerStatusRequest,
 	_ ...grpc.CallOption,
 ) (*crioruntime.ContainerStatusResponse, error) {
-	containerID := in.ContainerId
-	netnsPath, wasFound := cc.cache[containerID]
-	if !wasFound {
-		return nil, fmt.Errorf("container %s not found", containerID)
-	}
-
-	containerStatus := newContainerStatusResponseWithLinuxNetworkNamespaceInfo(netnsPath)
-	marshalledContainerStatus, err := json.Marshal(&containerStatus)
-	if err != nil {
-		return nil, fmt.Errorf("error marshaling the container status: %v", err)
-	}
-
-	return &crioruntime.ContainerStatusResponse{
-		Info: map[string]string{"info": string(marshalledContainerStatus)},
-	}, nil
+	return nil, nil
 }
 
 func (CrioClient) UpdateContainerResources(
@@ -274,13 +301,13 @@ func (cc CrioClient) RuntimeConfig(
 	return nil, nil
 }
 
-func newContainerStatusResponseWithLinuxNetworkNamespaceInfo(netnsPath string) criotypes.ContainerStatusResponse {
-	return criotypes.ContainerStatusResponse{
-		RunTimeSpec: criotypes.ContainerRuntimeStatus{
-			Linux: criotypes.NamespacesInfo{
-				Namespaces: []criotypes.NameSpaceInfo{
+func newContainerStatusResponseWithLinuxNetworkNamespaceInfo(netnsPath string) cri.PodSandboxStatusInfo {
+	return cri.PodSandboxStatusInfo{
+		RuntimeSpec: &specs.Spec{
+			Linux: &specs.Linux{
+				Namespaces: []specs.LinuxNamespace{
 					{
-						Type: criotypes.ContainerNetworkNamespace,
+						Type: specs.NetworkNamespace,
 						Path: netnsPath,
 					},
 				},

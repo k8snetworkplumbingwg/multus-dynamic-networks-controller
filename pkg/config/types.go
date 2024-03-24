@@ -4,9 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
-
-	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/cri"
 )
 
 const (
@@ -19,9 +16,6 @@ const (
 type Multus struct {
 	// path to the socket through which the controller will query the CRI
 	CriSocketPath string `json:"criSocketPath"`
-
-	// CRI-O or containerd
-	CriType cri.RuntimeType `json:"criType"`
 
 	// Points to the path of the unix domain socket through which the
 	// client communicates with the multus server.
@@ -48,23 +42,5 @@ func LoadConfig(configPath string) (*Multus, error) {
 		daemonNetConf.CriSocketPath = containerdSocketPath
 	}
 
-	if daemonNetConf.CriType == "" {
-		daemonNetConf.CriType = cri.Containerd
-	} else if isInvalidRuntime(daemonNetConf.CriType) {
-		return nil, invalidRuntimeError(daemonNetConf.CriType)
-	}
-
 	return daemonNetConf, nil
-}
-
-func isInvalidRuntime(runtime cri.RuntimeType) bool {
-	return runtime != cri.Containerd && runtime != cri.Crio
-}
-
-func invalidRuntimeError(runtime cri.RuntimeType) error {
-	validRuntimes := []string{string(cri.Containerd), string(cri.Crio)}
-	return fmt.Errorf(
-		"invalid CRI type: %s. Allowed values are: %s",
-		runtime,
-		strings.Join(validRuntimes, ","))
 }
