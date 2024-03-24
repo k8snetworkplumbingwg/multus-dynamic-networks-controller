@@ -30,7 +30,6 @@ import (
 	multusapi "gopkg.in/k8snetworkplumbingwg/multus-cni.v4/pkg/server/api"
 
 	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/annotations"
-	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/cri"
 	fakecri "github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/cri/fake"
 	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/multuscni"
 	fakemultusclient "github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/multuscni/fake"
@@ -646,7 +645,7 @@ func newDummyPodController(
 	nadClient nadclient.Interface,
 	stopChannel chan struct{},
 	recorder record.EventRecorder,
-	containerRuntime cri.ContainerRuntime,
+	containerRuntime ContainerRuntime,
 	multusClient multuscni.Client) (*dummyPodController, error) {
 	const noResyncPeriod = 0
 	netAttachDefInformerFactory := nadinformers.NewSharedInformerFactory(nadClient, noResyncPeriod)

@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -26,7 +27,6 @@ import (
 	multusapi "gopkg.in/k8snetworkplumbingwg/multus-cni.v4/pkg/server/api"
 
 	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/annotations"
-	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/cri"
 	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/logging"
 	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/multuscni"
 )
@@ -41,10 +41,19 @@ const (
 type DynamicAttachmentRequestType string
 
 type DynamicAttachmentRequest struct {
-	Pod         *corev1.Pod
-	Attachments []nadv1.NetworkSelectionElement
-	Type        DynamicAttachmentRequestType
-	PodNetNS    string
+	Pod          *corev1.Pod
+	Attachments  []nadv1.NetworkSelectionElement
+	Type         DynamicAttachmentRequestType
+	PodSandboxID string
+	PodNetNS     string
+}
+
+// ContainerRuntime interface
+type ContainerRuntime interface {
+	// NetworkNamespace returns the network namespace of the given pod.
+	NetworkNamespace(ctx context.Context, podName string, podNamespace string) (string, error)
+	// PodSandboxID returns the PodSandboxID of the given pod.
+	PodSandboxID(ctx context.Context, podName string, podNamespace string) (string, error)
 }
 
 func (dar *DynamicAttachmentRequest) String() string {
@@ -70,7 +79,7 @@ type PodNetworksController struct {
 	recorder                record.EventRecorder
 	workqueue               workqueue.RateLimitingInterface
 	nadClientSet            nadclient.Interface
-	containerRuntime        cri.ContainerRuntime
+	containerRuntime        ContainerRuntime
 	multusClient            multuscni.Client
 }
 
@@ -82,7 +91,7 @@ func NewPodNetworksController(
 	recorder record.EventRecorder,
 	k8sClientSet kubernetes.Interface,
 	nadClientSet nadclient.Interface,
-	containerRuntime cri.ContainerRuntime,
+	containerRuntime ContainerRuntime,
 	multusClient multuscni.Client,
 ) (*PodNetworksController, error) {
 	podInformer := k8sCoreInformerFactory.Core().V1().Pods().Informer()
@@ -179,6 +188,8 @@ func (pnc *PodNetworksController) processNextWorkItem() bool {
 	if shouldQuit {
 		return false
 	}
+	ctx := context.Background()
+
 	defer pnc.workqueue.Done(queueItem)
 	podNamespacedName := queueItem.(*string)
 	klog.Infof("extracted update request for pod [%s] from the queue", *podNamespacedName)
@@ -208,9 +219,15 @@ func (pnc *PodNetworksController) processNextWorkItem() bool {
 	indexedNetworkSelectionElements := annotations.IndexNetworkSelectionElements(networkSelectionElements)
 	indexedNetworkStatus := annotations.IndexNetworkStatus(networkStatus)
 
-	netnsPath, err := pnc.netnsPath(pod)
+	netnsPath, err := pnc.containerRuntime.NetworkNamespace(ctx, podName, podNamespace)
 	if err != nil {
 		klog.Errorf("failed to figure out the pod's network namespace: %v", err)
+		return true
+	}
+
+	podSandboxID, err := pnc.containerRuntime.PodSandboxID(ctx, podName, podNamespace)
+	if err != nil {
+		klog.Errorf("failed to figure out the PodSandboxID: %v", err)
 		return true
 	}
 
@@ -230,10 +247,11 @@ func (pnc *PodNetworksController) processNextWorkItem() bool {
 	if len(attachmentsToAdd) > 0 {
 		results, err = pnc.handleDynamicInterfaceRequest(
 			&DynamicAttachmentRequest{
-				Pod:         pod,
-				Attachments: attachmentsToAdd,
-				Type:        add,
-				PodNetNS:    netnsPath,
+				Pod:          pod,
+				Attachments:  attachmentsToAdd,
+				Type:         add,
+				PodNetNS:     netnsPath,
+				PodSandboxID: podSandboxID,
 			})
 		if err != nil {
 			klog.Errorf("error adding attachments: %v", err)
@@ -375,7 +393,7 @@ func (pnc *PodNetworksController) addNetworks(dynamicAttachmentRequest *DynamicA
 		response, err := pnc.multusClient.InvokeDelegate(
 			multusapi.CreateDelegateRequest(
 				multuscni.CmdAdd,
-				podContainerID(pod),
+				dynamicAttachmentRequest.PodSandboxID,
 				dynamicAttachmentRequest.PodNetNS,
 				netToAdd.InterfaceRequest,
 				pod.GetNamespace(),
@@ -432,7 +450,7 @@ func (pnc *PodNetworksController) removeNetworks(
 		_, err = pnc.multusClient.InvokeDelegate(
 			multusapi.CreateDelegateRequest(
 				multuscni.CmdDel,
-				podContainerID(pod),
+				dynamicAttachmentRequest.PodSandboxID,
 				dynamicAttachmentRequest.PodNetNS,
 				netToRemove.InterfaceRequest,
 				pod.GetNamespace(),
@@ -463,27 +481,6 @@ func (pnc *PodNetworksController) Eventf(object runtime.Object, eventtype, reaso
 	if pnc != nil && pnc.recorder != nil {
 		pnc.recorder.Eventf(object, eventtype, reason, messageFmt, args...)
 	}
-}
-
-func (pnc *PodNetworksController) netnsPath(pod *corev1.Pod) (string, error) {
-	if containerID := podContainerID(pod); containerID != "" {
-		netns, err := pnc.containerRuntime.NetNS(containerID)
-		if err != nil {
-			return "", fmt.Errorf("failed to get netns for container [%s]: %w", containerID, err)
-		}
-		return netns, nil
-	}
-	return "", nil
-}
-
-func podContainerID(pod *corev1.Pod) string {
-	cidURI := pod.Status.ContainerStatuses[0].ContainerID
-	// format is docker://<cid>
-	parts := strings.Split(cidURI, "//")
-	if len(parts) > 1 {
-		return parts[1]
-	}
-	return cidURI
 }
 
 func addIfaceEventFormat(pod *corev1.Pod, network *nadv1.NetworkSelectionElement) string {
