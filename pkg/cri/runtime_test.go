@@ -21,8 +21,7 @@ var _ = Describe("CRI runtime", func() {
 
 	When("the runtime *does not* feature any pod", func() {
 		const (
-			podName      = "my-pod"
-			podNamespace = "default"
+			podUID = "abc-def"
 		)
 
 		BeforeEach(func() {
@@ -30,33 +29,32 @@ var _ = Describe("CRI runtime", func() {
 		})
 
 		It("cannot extract the network namespace of a pod", func() {
-			_, err := runtime.NetworkNamespace(context.Background(), podName, podNamespace)
+			_, err := runtime.NetworkNamespace(context.Background(), podUID)
 			Expect(err).To(HaveOccurred())
 		})
 
 		It("cannot extract the PodSandboxID of a pod", func() {
-			_, err := runtime.PodSandboxID(context.Background(), podName, podNamespace)
+			_, err := runtime.PodSandboxID(context.Background(), podUID)
 			Expect(err).To(HaveOccurred())
 		})
 	})
 
 	When("a live container is provisioned in the runtime", func() {
 		const (
-			podName      = "my-pod"
-			podNamespace = "default"
+			podUID       = "abc-def"
 			podSandboxID = "1234"
 			netnsPath    = "bottom-drawer"
 		)
 		BeforeEach(func() {
-			runtime = newDummyCrioRuntime(fake.WithCachedContainer(podName, podNamespace, podSandboxID, netnsPath))
+			runtime = newDummyCrioRuntime(fake.WithCachedContainer(podUID, podSandboxID, netnsPath))
 		})
 
 		It("cannot extract the network namespace of a pod", func() {
-			Expect(runtime.NetworkNamespace(context.Background(), podName, podNamespace)).To(Equal(netnsPath))
+			Expect(runtime.NetworkNamespace(context.Background(), podUID)).To(Equal(netnsPath))
 		})
 
 		It("cannot extract the PodSandboxID of a pod", func() {
-			Expect(runtime.PodSandboxID(context.Background(), podName, podNamespace)).To(Equal(podSandboxID))
+			Expect(runtime.PodSandboxID(context.Background(), podUID)).To(Equal(podSandboxID))
 		})
 	})
 })

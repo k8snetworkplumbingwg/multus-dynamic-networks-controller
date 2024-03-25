@@ -34,23 +34,24 @@ func NewRuntime(socketPath string, timeout time.Duration) (*Runtime, error) {
 	}, nil
 }
 
-func (r *Runtime) NetworkNamespace(ctx context.Context, podName string, podNamespace string) (string, error) {
-	podSandboxId, err := r.PodSandboxID(ctx, podName, podNamespace)
+func (r *Runtime) NetworkNamespace(ctx context.Context, podUID string) (string, error) {
+	podSandboxID, err := r.PodSandboxID(ctx, podUID)
 	if err != nil {
 		return "", err
 	}
 
 	podSandboxStatus, err := r.Client.PodSandboxStatus(ctx, &cri.PodSandboxStatusRequest{
-		PodSandboxId: podSandboxId,
+		PodSandboxId: podSandboxID,
 		Verbose:      true,
 	})
 	if err != nil || podSandboxStatus == nil {
-		return "", fmt.Errorf("failed to PodSandboxStatus for PodSandboxId %s: %w", podSandboxId, err)
+		return "", fmt.Errorf("failed to PodSandboxStatus for PodSandboxId %s: %w", podSandboxID, err)
 	}
 
 	sandboxInfo := &PodSandboxStatusInfo{}
 
-	if err := json.Unmarshal([]byte(podSandboxStatus.Info[InfoKey]), sandboxInfo); err != nil {
+	err = json.Unmarshal([]byte(podSandboxStatus.Info[InfoKey]), sandboxInfo)
+	if err != nil {
 		return "", fmt.Errorf("failed to Unmarshal podSandboxStatus.Info['%s']: %w", InfoKey, err)
 	}
 
@@ -66,32 +67,31 @@ func (r *Runtime) NetworkNamespace(ctx context.Context, podName string, podNames
 	}
 
 	if networkNamespace == "" {
-		return "", fmt.Errorf("failed to find network namespace for PodSandboxId %s: %w", podSandboxId, err)
+		return "", fmt.Errorf("failed to find network namespace for PodSandboxId %s: %w", podSandboxID, err)
 	}
 
 	return networkNamespace, nil
 }
 
-func (r *Runtime) PodSandboxID(ctx context.Context, podName string, podNamespace string) (string, error) {
+func (r *Runtime) PodSandboxID(ctx context.Context, podUID string) (string, error) {
 	// Labels used by Kubernetes: https://github.com/kubernetes/kubernetes/blob/v1.29.2/staging/src/k8s.io/kubelet/pkg/types/labels.go#L19
 	ListPodSandboxRequest, err := r.Client.ListPodSandbox(ctx, &cri.ListPodSandboxRequest{
 		Filter: &cri.PodSandboxFilter{
 			LabelSelector: map[string]string{
-				types.KubernetesPodNameLabel:      podName,
-				types.KubernetesPodNamespaceLabel: podNamespace,
+				types.KubernetesPodUIDLabel: podUID,
 			},
 		},
 	})
 	if err != nil {
-		return "", fmt.Errorf("failed to ListPodSandbox for pod %s.%s: %w", podName, podNamespace, err)
+		return "", fmt.Errorf("failed to ListPodSandbox for pod %s: %w", podUID, err)
 	}
 
 	if ListPodSandboxRequest == nil || ListPodSandboxRequest.Items == nil || len(ListPodSandboxRequest.Items) == 0 {
-		return "", fmt.Errorf("ListPodSandbox returned 0 item for pod %s.%s: %w", podName, podNamespace, err)
+		return "", fmt.Errorf("ListPodSandbox returned 0 item for pod %s", podUID)
 	}
 
 	if len(ListPodSandboxRequest.Items) > 1 {
-		return "", fmt.Errorf("ListPodSandbox returned more than 1 item for pod %s.%s: %w", podName, podNamespace, err)
+		return "", fmt.Errorf("ListPodSandbox returned more than 1 item for pod %s", podUID)
 	}
 
 	return ListPodSandboxRequest.Items[0].Id, nil

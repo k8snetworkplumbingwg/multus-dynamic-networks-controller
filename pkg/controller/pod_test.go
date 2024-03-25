@@ -17,6 +17,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	v1coreinformerfactory "k8s.io/client-go/informers"
 	k8sclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
@@ -71,6 +72,7 @@ var _ = Describe("Dynamic Attachment controller", func() {
 				namespace   = "default"
 				networkName = "tiny-net"
 				podName     = "tiny-winy-pod"
+				podUID      = "abc-def"
 			)
 			cniArgs := &map[string]string{"foo": "bar"}
 			var (
@@ -91,7 +93,7 @@ var _ = Describe("Dynamic Attachment controller", func() {
 			}
 
 			BeforeEach(func() {
-				pod = podSpec(podName, namespace, networkName)
+				pod = podSpec(podName, namespace, podUID, networkName)
 				networkToAdd = fmt.Sprintf("%s-2", networkName)
 
 				var err error
@@ -212,7 +214,7 @@ var _ = Describe("Dynamic Attachment controller", func() {
 
 			When("an attachment is added to a host networked pod", func() {
 				BeforeEach(func() {
-					pod = hostNetworkedPodSpec(podName, namespace, networkName)
+					pod = hostNetworkedPodSpec(podName, namespace, podUID, networkName)
 				})
 
 				JustAfterEach(func() {
@@ -764,12 +766,13 @@ func dummyNetSpec(networkName string, cniVersion string) string {
     }`, cniVersion, networkName)
 }
 
-func podSpec(name string, namespace string, networks ...string) *corev1.Pod {
+func podSpec(name string, namespace string, uid string, networks ...string) *corev1.Pod {
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name,
 			Namespace:   namespace,
 			Annotations: podNetworkConfig(networks...),
+			UID:         types.UID(uid),
 		},
 		Status: corev1.PodStatus{
 			ContainerStatuses: []corev1.ContainerStatus{
@@ -876,8 +879,8 @@ func ifaceStatusForDefaultNamespace(networkName, ifaceName, macAddress string) n
 	}
 }
 
-func hostNetworkedPodSpec(name string, namespace string, networks ...string) *corev1.Pod {
-	pod := podSpec(name, namespace, networks...)
+func hostNetworkedPodSpec(name string, namespace string, uid string, networks ...string) *corev1.Pod {
+	pod := podSpec(name, namespace, uid, networks...)
 	pod.Spec.HostNetwork = true
 	return pod
 }

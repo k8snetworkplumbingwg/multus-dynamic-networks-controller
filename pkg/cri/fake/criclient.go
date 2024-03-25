@@ -14,7 +14,7 @@ import (
 )
 
 type CrioClient struct {
-	cachePodSandboxID map[string]string // Key: podname.podnamespace, value: podSandboxID
+	cachePodSandboxID map[string]string // Key: podUID, value: podSandboxID
 	cacheNetNs        map[string]string // Key: podSandboxID, value: netns
 }
 
@@ -31,9 +31,9 @@ func NewFakeClient(opts ...ClientOpt) *CrioClient {
 	return client
 }
 
-func WithCachedContainer(podName string, podNamespace string, podSandboxID string, netnsPath string) ClientOpt {
+func WithCachedContainer(podUID, podSandboxID string, netnsPath string) ClientOpt {
 	return func(client *CrioClient) {
-		client.cachePodSandboxID[fmt.Sprintf("%s.%s", podName, podNamespace)] = podSandboxID
+		client.cachePodSandboxID[podUID] = podSandboxID
 		client.cacheNetNs[podSandboxID] = netnsPath
 	}
 }
@@ -95,18 +95,12 @@ func (cc CrioClient) ListPodSandbox(
 	res := &crioruntime.ListPodSandboxResponse{
 		Items: []*crioruntime.PodSandbox{},
 	}
-
-	podName, exists := listPodSandboxRequest.Filter.LabelSelector[types.KubernetesPodNameLabel]
+	podUID, exists := listPodSandboxRequest.Filter.LabelSelector[types.KubernetesPodUIDLabel]
 	if !exists {
 		return res, nil
 	}
 
-	podNamespace, exists := listPodSandboxRequest.Filter.LabelSelector[types.KubernetesPodNamespaceLabel]
-	if !exists {
-		return res, nil
-	}
-
-	id, exists := cc.cachePodSandboxID[fmt.Sprintf("%s.%s", podName, podNamespace)]
+	id, exists := cc.cachePodSandboxID[podUID]
 	if !exists {
 		return res, nil
 	}

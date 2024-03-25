@@ -51,9 +51,9 @@ type DynamicAttachmentRequest struct {
 // ContainerRuntime interface
 type ContainerRuntime interface {
 	// NetworkNamespace returns the network namespace of the given pod.
-	NetworkNamespace(ctx context.Context, podName string, podNamespace string) (string, error)
+	NetworkNamespace(ctx context.Context, podUID string) (string, error)
 	// PodSandboxID returns the PodSandboxID of the given pod.
-	PodSandboxID(ctx context.Context, podName string, podNamespace string) (string, error)
+	PodSandboxID(ctx context.Context, podUID string) (string, error)
 }
 
 func (dar *DynamicAttachmentRequest) String() string {
@@ -219,13 +219,13 @@ func (pnc *PodNetworksController) processNextWorkItem() bool {
 	indexedNetworkSelectionElements := annotations.IndexNetworkSelectionElements(networkSelectionElements)
 	indexedNetworkStatus := annotations.IndexNetworkStatus(networkStatus)
 
-	netnsPath, err := pnc.containerRuntime.NetworkNamespace(ctx, podName, podNamespace)
+	netnsPath, err := pnc.containerRuntime.NetworkNamespace(ctx, string(pod.UID))
 	if err != nil {
 		klog.Errorf("failed to figure out the pod's network namespace: %v", err)
 		return true
 	}
 
-	podSandboxID, err := pnc.containerRuntime.PodSandboxID(ctx, podName, podNamespace)
+	podSandboxID, err := pnc.containerRuntime.PodSandboxID(ctx, string(pod.UID))
 	if err != nil {
 		klog.Errorf("failed to figure out the PodSandboxID: %v", err)
 		return true
@@ -276,10 +276,11 @@ func (pnc *PodNetworksController) processNextWorkItem() bool {
 	if len(attachmentsToRemove) > 0 {
 		var res []annotations.AttachmentResult
 		res, err = pnc.handleDynamicInterfaceRequest(&DynamicAttachmentRequest{
-			Pod:         pod,
-			Attachments: attachmentsToRemove,
-			Type:        remove,
-			PodNetNS:    netnsPath,
+			Pod:          pod,
+			Attachments:  attachmentsToRemove,
+			Type:         remove,
+			PodNetNS:     netnsPath,
+			PodSandboxID: podSandboxID,
 		})
 		results = append(results, res...)
 		if err != nil {
