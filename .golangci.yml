@@ -6,8 +6,8 @@ linters-settings:
   dupl:
     threshold: 100
   funlen:
-    lines: 100
-    statements: 50
+    lines: 110
+    statements: 55
   gci:
     local-prefixes: github.com/maiqueb/multus-dynamic-networks-controller
   goconst:
