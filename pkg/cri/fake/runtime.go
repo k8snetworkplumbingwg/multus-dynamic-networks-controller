@@ -1,6 +1,7 @@
 package fake
 
 import (
+	"context"
 	"crypto/md5" // #nosec
 	"encoding/hex"
 	"fmt"
@@ -17,14 +18,21 @@ func NewFakeRuntime(pods ...v1.Pod) *Runtime {
 
 	for i := range pods {
 		hash := md5.Sum([]byte(pods[i].GetName())) // #nosec
-		runtimeCache[pods[i].GetName()] = hex.EncodeToString(hash[:])
+		runtimeCache[string(pods[i].GetUID())] = hex.EncodeToString(hash[:])
 	}
 	return &Runtime{cache: runtimeCache}
 }
 
-func (r *Runtime) NetNS(containerID string) (string, error) {
-	if netnsName, wasFound := r.cache[containerID]; wasFound {
+func (r *Runtime) NetworkNamespace(_ context.Context, podUID string) (string, error) {
+	if netnsName, wasFound := r.cache[podUID]; wasFound {
 		return netnsName, nil
 	}
-	return "", fmt.Errorf("could not find a network namespace for container: %s", containerID)
+	return "", fmt.Errorf("could not find a network namespace for container: %s", podUID)
+}
+
+func (r *Runtime) PodSandboxID(_ context.Context, podUID string) (string, error) {
+	if netnsName, wasFound := r.cache[podUID]; wasFound {
+		return netnsName, nil
+	}
+	return "", fmt.Errorf("could not find a PodSandboxID for pod: %s", podUID)
 }

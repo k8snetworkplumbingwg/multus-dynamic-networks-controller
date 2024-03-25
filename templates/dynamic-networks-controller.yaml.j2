@@ -61,9 +61,6 @@ metadata:
 data:
   dynamic-networks-config.json: |
     {
-        {%- if CRIO_RUNTIME is defined %}
-        "criType": "crio",
-        {%- endif %}
         "criSocketPath": "/host{{ CRI_SOCKET_PATH }}",
         "multusSocketPath": "/host{{ MULTUS_SOCKET_PATH }}"
     }

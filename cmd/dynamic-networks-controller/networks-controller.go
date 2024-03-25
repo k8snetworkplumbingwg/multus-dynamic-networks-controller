@@ -24,8 +24,6 @@ import (
 	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/config"
 	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/controller"
 	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/cri"
-	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/cri/containerd"
-	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/cri/crio"
 	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/logging"
 	"github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/pkg/multuscni"
 )
@@ -91,9 +89,10 @@ func newController(stopChannel chan struct{}, configuration *config.Multus) (*co
 
 	eventBroadcaster := newEventBroadcaster(k8sClient)
 
-	containerRuntime, err := newContainerRuntime(configuration)
+	const shortTimeout = 5 * time.Second
+	containerRuntime, err := cri.NewRuntime(configuration.CriSocketPath, shortTimeout)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create CRI type %s: %v", configuration.CriType, err)
+		return nil, fmt.Errorf("failed to create CRI runtime (%s): %v", configuration.CriSocketPath, err)
 	}
 
 	podNetworksController, err := controller.NewPodNetworksController(
@@ -154,14 +153,6 @@ func handleSignals(stopChannel chan struct{}, signals ...os.Signal) {
 		<-signalChannel
 		stopChannel <- struct{}{}
 	}()
-}
-
-func newContainerRuntime(configuration *config.Multus) (cri.ContainerRuntime, error) {
-	const shortTimeout = 5 * time.Second
-	if configuration.CriType == cri.Crio {
-		return crio.NewRuntime(configuration.CriSocketPath, shortTimeout)
-	}
-	return containerd.NewContainerdRuntime(configuration.CriSocketPath, shortTimeout)
 }
 
 func controllerVersion() string {

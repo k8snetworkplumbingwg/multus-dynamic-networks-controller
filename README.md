@@ -143,7 +143,6 @@ spec:
 The `multus-dynamic-networks-controller` configuration is encoded in JSON, and allows the following keys:
 
 - `"criSocketPath"`: specify the path to the CRI socket. Defaults to `/run/containerd/containerd.sock`.
-- `"criType"`: either `crio` or `containerd`. Defaults to `containerd`.
 - `"multusSocketPath"`: specify the path to the multus socket. Defaults to `/var/run/multus-cni/multus.sock`.
 
 The configuration is defined in a `ConfigMap`, which is defined in the
