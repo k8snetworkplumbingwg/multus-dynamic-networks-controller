@@ -5,7 +5,7 @@ go 1.21
 require (
 	github.com/containernetworking/cni v1.1.2
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.5.0
-	github.com/onsi/ginkgo/v2 v2.15.0
+	github.com/onsi/ginkgo/v2 v2.17.1
 	github.com/onsi/gomega v1.31.1
 	github.com/opencontainers/runtime-spec v1.1.0
 	google.golang.org/grpc v1.63.2
