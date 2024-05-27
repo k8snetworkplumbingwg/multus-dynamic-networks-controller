@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -89,8 +88,7 @@ func newController(stopChannel chan struct{}, configuration *config.Multus) (*co
 
 	eventBroadcaster := newEventBroadcaster(k8sClient)
 
-	const shortTimeout = 5 * time.Second
-	containerRuntime, err := cri.NewRuntime(configuration.CriSocketPath, shortTimeout)
+	containerRuntime, err := cri.NewRuntime(configuration.CriSocketPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CRI runtime (%s): %v", configuration.CriSocketPath, err)
 	}
