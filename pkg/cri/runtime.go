@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
-
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -18,13 +16,13 @@ type Runtime struct {
 	Client cri.RuntimeServiceClient
 }
 
-// New returns a connection to the CRI runtime
-func NewRuntime(socketPath string, timeout time.Duration) (*Runtime, error) {
+// NewRuntime returns a connection to the CRI runtime
+func NewRuntime(socketPath string) (*Runtime, error) {
 	if socketPath == "" {
 		return nil, fmt.Errorf("path to CRI socket missing")
 	}
 
-	clientConnection, err := connect(socketPath, timeout)
+	clientConnection, err := connect(socketPath)
 	if err != nil {
 		return nil, fmt.Errorf("error establishing connection to CRI: %w", err)
 	}
@@ -97,18 +95,14 @@ func (r *Runtime) PodSandboxID(ctx context.Context, podUID string) (string, erro
 	return ListPodSandboxRequest.Items[0].Id, nil
 }
 
-func connect(socketPath string, timeout time.Duration) (*grpc.ClientConn, error) {
+func connect(socketPath string) (*grpc.ClientConn, error) {
 	if socketPath == "" {
 		return nil, fmt.Errorf("endpoint is not set")
 	}
 
-	ctx, cancelFn := context.WithTimeout(context.Background(), timeout)
-	defer cancelFn()
-	conn, err := grpc.DialContext(
-		ctx,
+	conn, err := grpc.NewClient(
 		criServerAddress(socketPath),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("error connecting to endpoint '%s': %v", socketPath, err)
