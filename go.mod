@@ -3,7 +3,7 @@ module github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller
 go 1.21
 
 require (
-	github.com/containernetworking/cni v1.2.0
+	github.com/containernetworking/cni v1.2.2
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.7.0
 	github.com/onsi/ginkgo/v2 v2.19.0
 	github.com/onsi/gomega v1.33.1
@@ -19,7 +19,6 @@ require (
 )
 
 require (
-	github.com/Masterminds/semver/v3 v3.2.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.11.2 // indirect
 	github.com/evanphx/json-patch v4.12.0+incompatible // indirect
