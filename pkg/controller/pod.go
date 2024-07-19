@@ -231,6 +231,12 @@ func (pnc *PodNetworksController) processNextWorkItem() bool {
 		return true
 	}
 
+	duplicateInterfaceName, hasDuplicateInterfaceName := checkDuplicateInterfaceName(networkSelectionElements)
+	if hasDuplicateInterfaceName {
+		klog.Errorf("failed to add attachments for pod [%s] due to duplicate Interface name: %s", *podNamespacedName, duplicateInterfaceName)
+		return true
+	}
+
 	// The order in which the attachments will be added must be maintained.
 	// Having a deterministic order helps for troubleshooting and testing.
 	// It is also probably required by CNI due, example:
@@ -608,3 +614,15 @@ func getPodNetworks(pod *corev1.Pod) ([]nadv1.NetworkSelectionElement, []nadv1.N
 
 	return networkSelectionElements, networkStatusWithoutDefault, err
 }
+
+func checkDuplicateInterfaceName(NetworkSelectionElement []nadv1.NetworkSelectionElement) (string, bool) {
+	interfaceNameMap := make(map[string]struct{})
+	for _, network := range NetworkSelectionElement {
+		if _, ok := interfaceNameMap[network.InterfaceRequest]; ok {
+			return network.InterfaceRequest, true
+		}
+		interfaceNameMap[network.InterfaceRequest] = struct{}{}
+	}
+	return "", false
+}
+
