@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"regexp"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -231,6 +232,12 @@ func (pnc *PodNetworksController) processNextWorkItem() bool {
 		return true
 	}
 
+	duplicateInterfaceName, hasDuplicateInterfaceName := checkDuplicateInterfaceName(networkSelectionElements)
+	if hasDuplicateInterfaceName {
+		klog.Errorf("failed to add attachments for pod [%s] due to duplicate Interface name: %s", *podNamespacedName, duplicateInterfaceName)
+		return true
+	}
+
 	// The order in which the attachments will be added must be maintained.
 	// Having a deterministic order helps for troubleshooting and testing.
 	// It is also probably required by CNI due, example:
@@ -238,6 +245,7 @@ func (pnc *PodNetworksController) processNextWorkItem() bool {
 	// attachment and has linkInContainer set to true and master set to net-1. If the VLAN is added
 	// before the macvlan, then it will fail.
 	var attachmentsToAdd []nadv1.NetworkSelectionElement
+	var attachmentsToRemove []nadv1.NetworkSelectionElement
 	for i := range networkSelectionElements {
 		if _, wasFound := indexedNetworkStatus[annotations.NetworkSelectionElementIndexKey(networkSelectionElements[i])]; !wasFound {
 			attachmentsToAdd = append(attachmentsToAdd, networkSelectionElements[i])
@@ -253,7 +261,22 @@ func (pnc *PodNetworksController) processNextWorkItem() bool {
 				PodNetNS:     netnsPath,
 				PodSandboxID: podSandboxID,
 			})
-		if err != nil {
+		if isInterfaceAlreadyExistError(err) {
+			var interfaceAlreadyExistAttachment nadv1.NetworkSelectionElement
+			if len(results) < len(attachmentsToAdd) {
+				interfaceAlreadyExistAttachment = attachmentsToAdd[len(results)]
+				attachmentsToRemove = append(attachmentsToRemove, nadv1.NetworkSelectionElement{
+					Name:             interfaceAlreadyExistAttachment.Name,
+					Namespace:        interfaceAlreadyExistAttachment.Namespace,
+					InterfaceRequest: interfaceAlreadyExistAttachment.InterfaceRequest,
+				})
+				currentRetries := pnc.workqueue.NumRequeues(*podNamespacedName)
+				if currentRetries <= maxRetries {
+					klog.Errorf("re-queued request for: %s. Because interface already exists", *podNamespacedName)
+					pnc.workqueue.AddRateLimited(podNamespacedName)
+				}
+			}
+		} else if err != nil {
 			klog.Errorf("error adding attachments: %v", err)
 			return true
 		}
@@ -262,7 +285,6 @@ func (pnc *PodNetworksController) processNextWorkItem() bool {
 	// The order in which the attachments will be removed doesn't have to be maintained since CNI DEL must be very permissive
 	// in case of an error (e.g.: Interface already deleted by another attachement should not produce any error).
 	// For troubleshooting and testing, having a deterministic behavior is preferred.
-	var attachmentsToRemove []nadv1.NetworkSelectionElement
 	for i := range networkStatus {
 		networkNamespace, networkName, _ := separateNamespaceAndName(annotations.NetworkStatusIndexKey(networkStatus[i]))
 		if _, wasFound := indexedNetworkSelectionElements[annotations.NetworkStatusIndexKey(networkStatus[i])]; !wasFound {
@@ -607,4 +629,32 @@ func getPodNetworks(pod *corev1.Pod) ([]nadv1.NetworkSelectionElement, []nadv1.N
 	}
 
 	return networkSelectionElements, networkStatusWithoutDefault, err
+}
+
+
+func isInterfaceAlreadyExistError(err error) bool {
+	var lastError string
+	if err != nil {
+		lastIndex := strings.LastIndex(err.Error(), ":")
+		if lastIndex != -1 {
+			lastError = err.Error()[lastIndex+1:]
+			re := regexp.MustCompile(`interface name (\w+) already exists`)
+			matches := re.FindStringSubmatch(lastError)
+			if len(matches) > 0 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func checkDuplicateInterfaceName(NetworkSelectionElement []nadv1.NetworkSelectionElement) (string, bool) {
+	interfaceNameMap := make(map[string]struct{})
+	for _, network := range NetworkSelectionElement {
+		if _, ok := interfaceNameMap[network.InterfaceRequest]; ok {
+			return network.InterfaceRequest, true
+		}
+		interfaceNameMap[network.InterfaceRequest] = struct{}{}
+	}
+	return "", false
 }
