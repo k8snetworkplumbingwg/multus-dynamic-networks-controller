@@ -4,15 +4,15 @@ go 1.21
 
 require (
 	github.com/containernetworking/cni v1.2.0
-	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.7.0
+	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.7.3
 	github.com/onsi/ginkgo/v2 v2.19.0
 	github.com/onsi/gomega v1.33.1
 	github.com/opencontainers/runtime-spec v1.2.0
 	google.golang.org/grpc v1.63.2
-	gopkg.in/k8snetworkplumbingwg/multus-cni.v4 v4.0.2
+	gopkg.in/k8snetworkplumbingwg/multus-cni.v4 v4.1.1
 	k8s.io/api v0.29.1
 	k8s.io/apimachinery v0.29.1
-	k8s.io/client-go v0.29.1
+	k8s.io/client-go v1.5.2
 	k8s.io/cri-api v0.29.1
 	k8s.io/klog/v2 v2.120.1
 	k8s.io/kubelet v0.29.1
@@ -31,7 +31,7 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
-	github.com/google/gnostic-models v0.6.8 // indirect
+	github.com/google/gnostic-models v0.6.9-0.20230804172637-c7be7c783f49 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/pprof v0.0.0-20240424215950-a892ee059fd6 // indirect
