@@ -56,7 +56,6 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         run: |
           pip3 install --user --upgrade jinjanator
-          ln -s ~/.local/bin/jinjanate ~/.local/bin/j2
           j2 --version
 
       - name: Template release manifests

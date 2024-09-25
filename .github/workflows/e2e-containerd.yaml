@@ -16,7 +16,6 @@ jobs:
 
       - run: |
           pip3 install --user --upgrade jinjanator
-          ln -s ~/.local/bin/jinjanate ~/.local/bin/j2
           j2 --version
 
       - uses: actions/checkout@v3
