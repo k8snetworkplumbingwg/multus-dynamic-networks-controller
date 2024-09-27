@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -16,11 +17,13 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	v1coreinformerfactory "k8s.io/client-go/informers"
 	k8sclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
@@ -77,9 +80,10 @@ var _ = Describe("Dynamic Attachment controller", func() {
 			cniArgs := &map[string]string{"foo": "bar"}
 			var (
 				eventRecorder *record.FakeRecorder
-				k8sClient     k8sclient.Interface
+				k8sClient     *fake.Clientset
 				pod           *corev1.Pod
 				networkToAdd  string
+				networkToAdd1 string
 				stopChannel   chan struct{}
 				nadClient     nadclient.Interface
 			)
@@ -95,11 +99,13 @@ var _ = Describe("Dynamic Attachment controller", func() {
 			BeforeEach(func() {
 				pod = podSpec(podName, namespace, podUID, networkName)
 				networkToAdd = fmt.Sprintf("%s-2", networkName)
+				networkToAdd1 = fmt.Sprintf("%s-3", networkName)
 
 				var err error
 				nadClient, err = newFakeNetAttachDefClient(
 					netAttachDef(networkName, namespace, dummyNetSpec(networkName, cniVersion)),
-					netAttachDef(networkToAdd, namespace, dummyNetSpec(networkToAdd, cniVersion)))
+					netAttachDef(networkToAdd, namespace, dummyNetSpec(networkToAdd, cniVersion)),
+					netAttachDef(networkToAdd1, namespace, dummyNetSpec(networkToAdd1, cniVersion)))
 				Expect(err).NotTo(HaveOccurred())
 				stopChannel = make(chan struct{})
 				const maxEvents = 5
@@ -121,7 +127,10 @@ var _ = Describe("Dynamic Attachment controller", func() {
 						fakecri.NewFakeRuntime(*pod),
 						fakemultusclient.NewFakeClient(
 							networkConfig(multuscni.CmdAdd, "net1", macAddr),
-							networkConfig(multuscni.CmdDel, "net0", "")),
+							networkConfig(multuscni.CmdDel, "net0", ""),
+							networkConfig(multuscni.CmdAdd, "net2", ""),
+							networkConfig(multuscni.CmdDel, "net2", ""),
+						),
 					)).NotTo(BeNil())
 				Expect(func() []nad.NetworkStatus {
 					updatedPod, err := k8sClient.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
@@ -151,13 +160,13 @@ var _ = Describe("Dynamic Attachment controller", func() {
 				})
 
 				It("an `AddedInterface` event is seen in the event recorded ", func() {
-					expectedEventPayload := fmt.Sprintf(
+					expectedAddInterfaceEvent := fmt.Sprintf(
 						"Normal AddedInterface pod [%s]: added interface %s to network: %s",
 						annotations.NamespacedName(namespace, podName),
 						"net1",
 						networkToAdd,
 					)
-					Eventually(<-eventRecorder.Events).Should(Equal(expectedEventPayload))
+					Eventually(<-eventRecorder.Events).Should(Equal(expectedAddInterfaceEvent))
 				})
 
 				It("the pod network-status is updated with the new network attachment", func() {
@@ -188,13 +197,13 @@ var _ = Describe("Dynamic Attachment controller", func() {
 				})
 
 				It("an `RemovedInterface` event is seen in the event recorded ", func() {
-					expectedEventPayload := fmt.Sprintf(
+					expectedRemoveInterfaceEvent := fmt.Sprintf(
 						"Normal RemovedInterface pod [%s]: removed interface %s from network: %s",
 						annotations.NamespacedName(namespace, podName),
 						"net0",
 						networkName,
 					)
-					Eventually(<-eventRecorder.Events).Should(Equal(expectedEventPayload))
+					Eventually(<-eventRecorder.Events).Should(Equal(expectedRemoveInterfaceEvent))
 				})
 
 				It("the pod network-status no longer features the removed network", func() {
@@ -241,11 +250,11 @@ var _ = Describe("Dynamic Attachment controller", func() {
 				})
 
 				It("throws an event indicating the interface add operation is rejected", func() {
-					expectedEventPayload := fmt.Sprintf(
+					expectedAddInterfaceRejectedEvent := fmt.Sprintf(
 						"Warning InterfaceAddRejected pod [%s]: will not add interface to host networked pod",
 						annotations.NamespacedName(namespace, podName),
 					)
-					Eventually(<-eventRecorder.Events).Should(Equal(expectedEventPayload))
+					Eventually(<-eventRecorder.Events).Should(Equal(expectedAddInterfaceRejectedEvent))
 				})
 			})
 
@@ -274,7 +283,7 @@ var _ = Describe("Dynamic Attachment controller", func() {
 				})
 
 				It("an `AddedInterface` event is seen in the event recorded", func() {
-					expectedEventPayload := fmt.Sprintf(
+					expectedAddInterfaceEvent := fmt.Sprintf(
 						"Normal AddedInterface pod [%s]: added interface %s to network: %s(ips: [%s], mac: %s, cni-args: %v)",
 						annotations.NamespacedName(namespace, podName),
 						"net1",
@@ -283,7 +292,7 @@ var _ = Describe("Dynamic Attachment controller", func() {
 						macAddr,
 						cniArgs,
 					)
-					Eventually(<-eventRecorder.Events).Should(Equal(expectedEventPayload))
+					Eventually(<-eventRecorder.Events).Should(Equal(expectedAddInterfaceEvent))
 				})
 
 				It("the pod network-status is updated with the new network attachment", func() {
@@ -323,21 +332,21 @@ var _ = Describe("Dynamic Attachment controller", func() {
 					Expect(err).NotTo(HaveOccurred())
 				})
 
-				It("an `AddedInterface` event and then and `RemovedInterface` event are seen in the event recorded", func() {
-					expectedEventPayload := fmt.Sprintf(
+				It("an `AddedInterface` event and then a `RemovedInterface` event are seen in the event recorded", func() {
+					expectedAddInterfaceEvent := fmt.Sprintf(
 						"Normal AddedInterface pod [%s]: added interface %s to network: %s",
 						annotations.NamespacedName(namespace, podName),
 						"net1",
 						networkToAdd,
 					)
-					Eventually(<-eventRecorder.Events).Should(Equal(expectedEventPayload))
-					expectedEventPayload = fmt.Sprintf(
+					Eventually(<-eventRecorder.Events).Should(Equal(expectedAddInterfaceEvent))
+					expectedRemoveInterfaceEvent := fmt.Sprintf(
 						"Normal RemovedInterface pod [%s]: removed interface %s from network: %s",
 						annotations.NamespacedName(namespace, podName),
 						"net0",
 						networkName,
 					)
-					Eventually(<-eventRecorder.Events).Should(Equal(expectedEventPayload))
+					Eventually(<-eventRecorder.Events).Should(Equal(expectedRemoveInterfaceEvent))
 				})
 
 				It("the pod network-status is updated with the new network attachment and without the other one", func() {
@@ -382,23 +391,32 @@ var _ = Describe("Dynamic Attachment controller", func() {
 					Expect(err).NotTo(HaveOccurred())
 				})
 
-				It("an `FailedAddingInterface` event is seen, no `AddedInterface` event is seen and no changes the status", func() {
-					expectedEventPayload := fmt.Sprintf(
+				It("an `FailedAddingInterface` event and then a `FailedRemovingInterface ` are seen, no `AddedInterface` event is seen and no changes the status", func() {
+					expectedAddInterfaceFailedEvent := fmt.Sprintf(
 						"Warning FailedAddingInterface pod [%s]: failed adding interface %s to network: %s",
 						annotations.NamespacedName(namespace, podName),
 						"net-non-existing",
 						networkToAdd,
 					)
-					Eventually(<-eventRecorder.Events).Should(Equal(expectedEventPayload))
+					Eventually(<-eventRecorder.Events).Should(Equal(expectedAddInterfaceFailedEvent))
+
+					// try to removing interface added failed
+					expectedRemoveInterfaceFailedEvent := fmt.Sprintf(
+						"Warning FailedRemovingInterface pod [%s]: failed removing interface %s from network: %s",
+						annotations.NamespacedName(namespace, podName),
+						"net-non-existing",
+						networkToAdd,
+					)
+					Eventually(<-eventRecorder.Events).Should(Equal(expectedRemoveInterfaceFailedEvent))
 
 					// reconciliation requeued without adding the next interface (net1).
-					expectedEventPayload = fmt.Sprintf(
+					expectedAddNextInterfaceFailedEvent := fmt.Sprintf(
 						"Warning FailedAddingInterface pod [%s]: failed adding interface %s to network: %s",
 						annotations.NamespacedName(namespace, podName),
 						"net-non-existing",
 						networkToAdd,
 					)
-					Eventually(<-eventRecorder.Events).Should(Equal(expectedEventPayload))
+					Eventually(<-eventRecorder.Events).Should(Equal(expectedAddNextInterfaceFailedEvent))
 
 					// This is not in a separate "It" since there is no change and it should wait for the events
 					// No pod network-status is added since the first one failed.
@@ -445,21 +463,21 @@ var _ = Describe("Dynamic Attachment controller", func() {
 				})
 
 				It("an `AddedInterface` event is seen, followed by a `FailedAddingInterface` event", func() {
-					expectedEventPayload := fmt.Sprintf(
+					expectedAddInterfaceEvent := fmt.Sprintf(
 						"Normal AddedInterface pod [%s]: added interface %s to network: %s",
 						annotations.NamespacedName(namespace, podName),
 						"net1",
 						networkToAdd,
 					)
-					Eventually(<-eventRecorder.Events).Should(Equal(expectedEventPayload))
+					Eventually(<-eventRecorder.Events).Should(Equal(expectedAddInterfaceEvent))
 
-					expectedEventPayload = fmt.Sprintf(
+					expectedAddInterfaceFailedEvent := fmt.Sprintf(
 						"Warning FailedAddingInterface pod [%s]: failed adding interface %s to network: %s",
 						annotations.NamespacedName(namespace, podName),
 						"net-non-existing",
 						networkToAdd,
 					)
-					Eventually(<-eventRecorder.Events).Should(Equal(expectedEventPayload))
+					Eventually(<-eventRecorder.Events).Should(Equal(expectedAddInterfaceFailedEvent))
 				})
 
 				It("the pod network-status is updated with only the first added network attachment", func() {
@@ -519,21 +537,21 @@ var _ = Describe("Dynamic Attachment controller", func() {
 				})
 
 				It("a `RemovedInterface` event is seen followed by a `FailedRemovingInterface` event", func() {
-					expectedEventPayload := fmt.Sprintf(
+					expectedRemoveInterfaceEvent := fmt.Sprintf(
 						"Normal RemovedInterface pod [%s]: removed interface %s from network: %s",
 						annotations.NamespacedName(namespace, podName),
 						"net0",
 						networkName,
 					)
-					Eventually(<-eventRecorder.Events).Should(Equal(expectedEventPayload))
+					Eventually(<-eventRecorder.Events).Should(Equal(expectedRemoveInterfaceEvent))
 
-					expectedEventPayload = fmt.Sprintf(
+					expectedRemoveInterfaceFailedEvent := fmt.Sprintf(
 						"Warning FailedRemovingInterface pod [%s]: failed removing interface %s from network: %s",
 						annotations.NamespacedName(namespace, podName),
 						"net1",
 						networkToAdd,
 					)
-					Eventually(<-eventRecorder.Events).Should(Equal(expectedEventPayload))
+					Eventually(<-eventRecorder.Events).Should(Equal(expectedRemoveInterfaceFailedEvent))
 				})
 			})
 
@@ -578,13 +596,13 @@ var _ = Describe("Dynamic Attachment controller", func() {
 				})
 
 				It("a `RemovedInterface` event is seen", func() {
-					expectedEventPayload := fmt.Sprintf(
+					expectedRemoveInterfaceFailedEvent := fmt.Sprintf(
 						"Warning FailedRemovingInterface pod [%s]: failed removing interface %s from network: %s",
 						annotations.NamespacedName(namespace, podName),
 						"net1",
 						networkToAdd,
 					)
-					Eventually(<-eventRecorder.Events).Should(Equal(expectedEventPayload))
+					Eventually(<-eventRecorder.Events).Should(Equal(expectedRemoveInterfaceFailedEvent))
 				})
 			})
 
@@ -616,7 +634,57 @@ var _ = Describe("Dynamic Attachment controller", func() {
 					}).Should(ConsistOf(defaultNet))
 				})
 			})
+			When("an attachment is added with update status failed", func() {
+				JustBeforeEach(func() {
+					var err error
+					pod = updatePodSpec(pod)
+					pod.Annotations[nad.NetworkStatusAnnot] =
+						`[
+							{
+								"name": "default/tiny-net",
+								"interface": "net0",
+								"dns": {}
+							},
+							{
+								"name": "default/tiny-net-2",
+								"interface": "net1",
+								"mac": "02:03:04:05:06:07",
+								"dns": {}
+							}
+						]`
+					_, err = k8sClient.CoreV1().Pods(namespace).UpdateStatus(
+						context.TODO(),
+						updatePodSpec(pod, networkName, networkToAdd, networkToAdd1),
+						metav1.UpdateOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					expectedError := errors.New("someerror")
+					k8sClient.PrependReactor("update", "pods", func(_ k8stesting.Action) (bool, runtime.Object, error) {
+						return true, nil, expectedError
+					})
+				})
 
+				It("an `AddedInterface` and then a `RemovingInterface` event are seen in the event recorded ", func() {
+
+					expectedAddInterfaceEvent := fmt.Sprintf(
+						"Normal AddedInterface pod [%s]: added interface %s to network: %s",
+						annotations.NamespacedName(namespace, podName),
+						"net2",
+						networkToAdd1,
+					)
+
+					Eventually(<-eventRecorder.Events).Should(Equal(expectedAddInterfaceEvent))
+
+					expectedRemoveInterfaceEvent := fmt.Sprintf(
+						"Normal RemovedInterface pod [%s]: removed interface %s from network: %s",
+						annotations.NamespacedName(namespace, podName),
+						"net2",
+						networkToAdd1,
+					)
+
+					Eventually(<-eventRecorder.Events).Should(Equal(expectedRemoveInterfaceEvent))
+				})
+
+			})
 		})
 	})
 })
