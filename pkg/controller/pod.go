@@ -201,8 +201,13 @@ func (pnc *PodNetworksController) processNextWorkItem() bool {
 
 	var results []annotations.AttachmentResult
 	var pod *corev1.Pod
+	var netnsPath, podSandboxID string
+	var attachmentsToRollback []nadv1.NetworkSelectionElement
 	defer func() {
-		pnc.handleResult(err, podNamespacedName, pod, results)
+		err = pnc.handleResult(err, podNamespacedName, pod, results)
+		if err != nil {
+			pnc.handleRollback(netnsPath, podSandboxID, pod, attachmentsToRollback)
+		}
 	}()
 
 	pod, err = pnc.podsLister.Pods(podNamespace).Get(podName)
@@ -219,13 +224,13 @@ func (pnc *PodNetworksController) processNextWorkItem() bool {
 	indexedNetworkSelectionElements := annotations.IndexNetworkSelectionElements(networkSelectionElements)
 	indexedNetworkStatus := annotations.IndexNetworkStatus(networkStatus)
 
-	netnsPath, err := pnc.containerRuntime.NetworkNamespace(ctx, string(pod.UID))
+	netnsPath, err = pnc.containerRuntime.NetworkNamespace(ctx, string(pod.UID))
 	if err != nil {
 		klog.Errorf("failed to figure out the pod's network namespace: %v", err)
 		return true
 	}
 
-	podSandboxID, err := pnc.containerRuntime.PodSandboxID(ctx, string(pod.UID))
+	podSandboxID, err = pnc.containerRuntime.PodSandboxID(ctx, string(pod.UID))
 	if err != nil {
 		klog.Errorf("failed to figure out the PodSandboxID: %v", err)
 		return true
@@ -254,8 +259,12 @@ func (pnc *PodNetworksController) processNextWorkItem() bool {
 				PodSandboxID: podSandboxID,
 			})
 		if err != nil {
+			// The number of results will always less than len of attachmentsToAdd if err != nil.
+			attachmentsToRollback = attachmentsToAdd[:len(results)+1]
 			klog.Errorf("error adding attachments: %v", err)
 			return true
+		} else {
+			attachmentsToRollback = attachmentsToAdd
 		}
 	}
 
@@ -312,7 +321,7 @@ func (pnc *PodNetworksController) handleResult(
 	namespacedPodName *string,
 	pod *corev1.Pod,
 	results []annotations.AttachmentResult,
-) {
+) error {
 	namespacedPodNameString := "<nil>"
 	if namespacedPodName != nil {
 		namespacedPodNameString = *namespacedPodName
@@ -326,6 +335,7 @@ func (pnc *PodNetworksController) handleResult(
 				namespacedPodNameString,
 				podNetworkStatusUpdateError,
 			)
+			return fmt.Errorf("error updating pod network status")
 		}
 
 		if setNetworkStatusError := nadutils.SetNetworkStatus(
@@ -334,24 +344,25 @@ func (pnc *PodNetworksController) handleResult(
 			updatedStatus,
 		); setNetworkStatusError != nil {
 			klog.Errorf("error updating pod %s network status: %v", namespacedPodNameString, setNetworkStatusError)
+			return fmt.Errorf("error updating pod network status")
 		}
 	}
 
-	if err == nil {
-		pnc.workqueue.Forget(namespacedPodName)
-		return
-	}
+	if err != nil {
+		currentRetries := pnc.workqueue.NumRequeues(namespacedPodName)
+		if currentRetries <= maxRetries {
+			klog.Errorf("re-queued request for: %s. Error: %v", *namespacedPodName, err)
+			pnc.workqueue.AddRateLimited(namespacedPodName)
+			return err
+		}
 
-	currentRetries := pnc.workqueue.NumRequeues(namespacedPodName)
-	if currentRetries <= maxRetries {
-		klog.Errorf("re-queued request for: %s. Error: %v", *namespacedPodName, err)
-		pnc.workqueue.AddRateLimited(namespacedPodName)
-		return
+		pnc.workqueue.Forget(namespacedPodName)
+		return err
 	}
 
 	pnc.workqueue.Forget(namespacedPodName)
+	return nil
 }
-
 func (pnc *PodNetworksController) handlePodUpdate(oldObj interface{}, newObj interface{}) {
 	oldPod := oldObj.(*corev1.Pod)
 	newPod := newObj.(*corev1.Pod)
@@ -481,6 +492,22 @@ func (pnc *PodNetworksController) removeNetworks(
 func (pnc *PodNetworksController) Eventf(object runtime.Object, eventtype, reason, messageFmt string, args ...interface{}) {
 	if pnc != nil && pnc.recorder != nil {
 		pnc.recorder.Eventf(object, eventtype, reason, messageFmt, args...)
+	}
+}
+
+func (pnc *PodNetworksController) handleRollback(netnsPath, podSandboxID string, pod *corev1.Pod, attachmentsToRollback []nadv1.NetworkSelectionElement) {
+	if len(attachmentsToRollback) > 0 {
+		err, deleteAttachmentsError := pnc.handleDynamicInterfaceRequest(
+			&DynamicAttachmentRequest{
+				Pod:          pod,
+				Attachments:  attachmentsToRollback,
+				Type:         remove,
+				PodNetNS:     netnsPath,
+				PodSandboxID: podSandboxID,
+			})
+		if deleteAttachmentsError != nil {
+			klog.Errorf("error rollback attachments: %v after handle attachments add/remove", err)
+		}
 	}
 }
 
