@@ -7,8 +7,10 @@ import (
 	"time"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+
 	cri "k8s.io/cri-api/pkg/apis/runtime/v1"
 	"k8s.io/kubelet/pkg/types"
 )
@@ -18,7 +20,7 @@ type Runtime struct {
 	Client cri.RuntimeServiceClient
 }
 
-// New returns a connection to the CRI runtime
+// NewRuntime returns a connection to the CRI runtime
 func NewRuntime(socketPath string, timeout time.Duration) (*Runtime, error) {
 	if socketPath == "" {
 		return nil, fmt.Errorf("path to CRI socket missing")
@@ -102,13 +104,10 @@ func connect(socketPath string, timeout time.Duration) (*grpc.ClientConn, error)
 		return nil, fmt.Errorf("endpoint is not set")
 	}
 
-	ctx, cancelFn := context.WithTimeout(context.Background(), timeout)
-	defer cancelFn()
-	conn, err := grpc.DialContext(
-		ctx,
+	conn, err := grpc.NewClient(
 		criServerAddress(socketPath),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
+		grpc.WithConnectParams(grpc.ConnectParams{MinConnectTimeout: timeout}),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("error connecting to endpoint '%s': %v", socketPath, err)
