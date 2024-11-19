@@ -163,7 +163,7 @@ Below you can find information on how to push local code changes to a kind clust
 ### Mapping a container image to the code
 To know which git commit ID is in a certain container image perform the following steps:
 ```bash
-podman inspect ghcr.io/k8snetworkplumbingwg/multus-dynamic-networks-controller:latest-amd64 -f '{{index .Labels "multi.GIT_SHA"}}'
+podman inspect ghcr.io/k8snetworkplumbingwg/multus-dynamic-networks-controller:latest -f '{{index .Labels "multi.GIT_SHA"}}'
 e1db8da3c6267b3c2a5aca72ef8dd6a10b0ec9fd
 ```
 
