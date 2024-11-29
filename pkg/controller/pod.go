@@ -242,13 +242,7 @@ func (pnc *PodNetworksController) processNextWorkItem() bool {
 	// A macvlan (net-1) is added as an attachment, and a VLAN (net-2) is added as a separated
 	// attachment and has linkInContainer set to true and master set to net-1. If the VLAN is added
 	// before the macvlan, then it will fail.
-	var attachmentsToAdd []nadv1.NetworkSelectionElement
-	for i := range networkSelectionElements {
-		if _, wasFound := indexedNetworkStatus[annotations.NetworkSelectionElementIndexKey(networkSelectionElements[i])]; !wasFound {
-			attachmentsToAdd = append(attachmentsToAdd, networkSelectionElements[i])
-		}
-	}
-
+	attachmentsToAdd := newAttachments(networkSelectionElements, indexedNetworkStatus)
 	if len(attachmentsToAdd) > 0 {
 		results, err = pnc.handleDynamicInterfaceRequest(
 			&DynamicAttachmentRequest{
@@ -271,17 +265,7 @@ func (pnc *PodNetworksController) processNextWorkItem() bool {
 	// The order in which the attachments will be removed doesn't have to be maintained since CNI DEL must be very permissive
 	// in case of an error (e.g.: Interface already deleted by another attachement should not produce any error).
 	// For troubleshooting and testing, having a deterministic behavior is preferred.
-	var attachmentsToRemove []nadv1.NetworkSelectionElement
-	for i := range networkStatus {
-		networkNamespace, networkName, _ := separateNamespaceAndName(annotations.NetworkStatusIndexKey(networkStatus[i]))
-		if _, wasFound := indexedNetworkSelectionElements[annotations.NetworkStatusIndexKey(networkStatus[i])]; !wasFound {
-			attachmentsToRemove = append(attachmentsToRemove, nadv1.NetworkSelectionElement{
-				Name:             networkName,
-				Namespace:        networkNamespace,
-				InterfaceRequest: networkStatus[i].Interface,
-			})
-		}
-	}
+	attachmentsToRemove := attachmentsToDelete(networkStatus, indexedNetworkSelectionElements)
 	if len(attachmentsToRemove) > 0 {
 		var res []annotations.AttachmentResult
 		res, err = pnc.handleDynamicInterfaceRequest(&DynamicAttachmentRequest{
@@ -638,4 +622,35 @@ func getPodNetworks(pod *corev1.Pod) ([]nadv1.NetworkSelectionElement, []nadv1.N
 	}
 
 	return networkSelectionElements, networkStatusWithoutDefault, err
+}
+
+func newAttachments(
+	networkSelectionElements []nadv1.NetworkSelectionElement,
+	currentIndexedNetworkStatus map[string]nadv1.NetworkStatus,
+) []nadv1.NetworkSelectionElement {
+	var attachmentsToAdd []nadv1.NetworkSelectionElement
+	for i := range networkSelectionElements {
+		if _, wasFound := currentIndexedNetworkStatus[annotations.NetworkSelectionElementIndexKey(networkSelectionElements[i])]; !wasFound {
+			attachmentsToAdd = append(attachmentsToAdd, networkSelectionElements[i])
+		}
+	}
+	return attachmentsToAdd
+}
+
+func attachmentsToDelete(
+	networkStatus []nadv1.NetworkStatus,
+	currentIndexedNetworkStatus map[string]nadv1.NetworkSelectionElement,
+) []nadv1.NetworkSelectionElement {
+	var attachmentsToRemove []nadv1.NetworkSelectionElement
+	for i := range networkStatus {
+		networkNamespace, networkName, _ := separateNamespaceAndName(annotations.NetworkStatusIndexKey(networkStatus[i]))
+		if _, wasFound := currentIndexedNetworkStatus[annotations.NetworkStatusIndexKey(networkStatus[i])]; !wasFound {
+			attachmentsToRemove = append(attachmentsToRemove, nadv1.NetworkSelectionElement{
+				Name:             networkName,
+				Namespace:        networkNamespace,
+				InterfaceRequest: networkStatus[i].Interface,
+			})
+		}
+	}
+	return attachmentsToRemove
 }
