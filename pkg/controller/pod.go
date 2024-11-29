@@ -495,7 +495,11 @@ func (pnc *PodNetworksController) Eventf(object runtime.Object, eventtype, reaso
 	}
 }
 
-func (pnc *PodNetworksController) handleRollback(netnsPath, podSandboxID string, pod *corev1.Pod, attachmentsToRollback []nadv1.NetworkSelectionElement) {
+func (pnc *PodNetworksController) handleRollback(
+	netnsPath, podSandboxID string,
+	pod *corev1.Pod,
+	attachmentsToRollback []nadv1.NetworkSelectionElement,
+) {
 	if len(attachmentsToRollback) > 0 {
 		err, deleteAttachmentsError := pnc.handleDynamicInterfaceRequest(
 			&DynamicAttachmentRequest{
