@@ -7,9 +7,10 @@ on:
       - 'v*.*.*'
 env:
   image-push-owner: 'k8snetworkplumbingwg'
+  BUILD_PLATFORMS: linux/amd64,linux/arm64,linux/s390x
 jobs:
-  push-amd64:
-    name: Image push/amd64
+  push-image:
+    name: Image push
     runs-on: ubuntu-latest
     steps:
       - name: Check out code into the Go module directory
@@ -36,8 +37,9 @@ jobs:
         with:
           context: .
           push: true
-          tags: ghcr.io/${{ github.repository }}:latest-amd64
+          tags: ghcr.io/${{ github.repository }}:latest
           file: images/Dockerfile
+          platforms: ${{ env.BUILD_PLATFORMS }}
           build-args: |
             git_sha=${{ env.git_commit_hash }}
 
@@ -49,6 +51,7 @@ jobs:
           push: true
           tags: ghcr.io/${{ github.repository }}:${{  github.ref_name }}
           file: images/Dockerfile
+          platforms: ${{ env.BUILD_PLATFORMS }}
           build-args: |
             git_sha=${{ env.git_commit_hash }}
 
