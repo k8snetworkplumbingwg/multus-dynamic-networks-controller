@@ -391,7 +391,7 @@ var _ = Describe("Dynamic Attachment controller", func() {
 					Expect(err).NotTo(HaveOccurred())
 				})
 
-				It("an `FailedAddingInterface` event and then a `FailedRemovingInterface ` are seen, no `AddedInterface` event is seen and no changes the status", func() {
+				It("an `FailedAddingInterface` event and then a `FailedRemovingInterface` are seen, the network status is not updated", func() {
 					expectedAddInterfaceFailedEvent := fmt.Sprintf(
 						"Warning FailedAddingInterface pod [%s]: failed adding interface %s to network: %s",
 						annotations.NamespacedName(namespace, podName),
@@ -400,7 +400,7 @@ var _ = Describe("Dynamic Attachment controller", func() {
 					)
 					Eventually(<-eventRecorder.Events).Should(Equal(expectedAddInterfaceFailedEvent))
 
-					// try to removing interface added failed
+					// try to remove interface added failed
 					expectedRemoveInterfaceFailedEvent := fmt.Sprintf(
 						"Warning FailedRemovingInterface pod [%s]: failed removing interface %s from network: %s",
 						annotations.NamespacedName(namespace, podName),
@@ -418,7 +418,7 @@ var _ = Describe("Dynamic Attachment controller", func() {
 					)
 					Eventually(<-eventRecorder.Events).Should(Equal(expectedAddNextInterfaceFailedEvent))
 
-					// This is not in a separate "It" since there is no change and it should wait for the events
+					// This is not in a separate "It" since there is no change, and it should wait for the events
 					// No pod network-status is added since the first one failed.
 					Consistently(func() ([]nad.NetworkStatus, error) {
 						updatedPod, err := k8sClient.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
