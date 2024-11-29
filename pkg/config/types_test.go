@@ -25,10 +25,9 @@ var _ = Describe("The dynamic network attachment configuration", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(os.MkdirAll(configurationDir, allowAllPermissions)).To(Succeed())
-	})
-
-	AfterEach(func() {
-		Expect(os.RemoveAll(configurationDir)).To(Succeed())
+		DeferCleanup(func() {
+			Expect(os.RemoveAll(configurationDir)).To(Succeed())
+		})
 	})
 
 	When("a valid configuration file is provided", func() {

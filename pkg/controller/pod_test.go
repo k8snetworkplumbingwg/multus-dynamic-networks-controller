@@ -61,10 +61,9 @@ var _ = Describe("Dynamic Attachment controller", func() {
 			Expect(os.WriteFile(
 				path.Join(cniConfigDir, multusConfigPath),
 				[]byte(dummyMultusConfig()), configFilePermissions)).To(Succeed())
-		})
-
-		AfterEach(func() {
-			Expect(os.RemoveAll(cniConfigDir)).To(Succeed())
+			DeferCleanup(func() {
+				Expect(os.RemoveAll(cniConfigDir)).To(Succeed())
+			})
 		})
 
 		Context("with an existing running pod", func() {
@@ -121,12 +120,9 @@ var _ = Describe("Dynamic Attachment controller", func() {
 					netAttachDef(networkToAdd1, namespace, dummyNetSpec(networkToAdd1, cniVersion)))
 				Expect(err).NotTo(HaveOccurred())
 				stopChannel = make(chan struct{})
+				DeferCleanup(func() { close(stopChannel) })
 				const maxEvents = 5
 				eventRecorder = record.NewFakeRecorder(maxEvents)
-			})
-
-			AfterEach(func() {
-				close(stopChannel)
 			})
 
 			JustBeforeEach(func() {
