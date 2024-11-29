@@ -106,9 +106,10 @@ func NewPodNetworksController(
 		netAttachDefLister:      nadInformers.K8sCniCncfIo().V1().NetworkAttachmentDefinitions().Lister(),
 		recorder:                recorder,
 		broadcaster:             broadcaster,
-		workqueue: workqueue.NewNamedRateLimitingQueue(
+		workqueue: workqueue.NewRateLimitingQueueWithConfig(
 			workqueue.DefaultControllerRateLimiter(),
-			AdvertisedName),
+			workqueue.RateLimitingQueueConfig{Name: AdvertisedName},
+		),
 		k8sClientSet:     k8sClientSet,
 		nadClientSet:     nadClientSet,
 		containerRuntime: containerRuntime,
