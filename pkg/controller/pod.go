@@ -335,7 +335,7 @@ func (pnc *PodNetworksController) handleResult(
 	if err != nil {
 		currentRetries := pnc.workqueue.NumRequeues(namespacedPodName)
 		if currentRetries <= maxRetries {
-			klog.Errorf("re-queued request for: %s. Error: %v", *namespacedPodName, err)
+			klog.Errorf("re-queued request for: %s. Error: %v", namespacedPodNameString, err)
 			pnc.workqueue.AddRateLimited(namespacedPodName)
 			return err
 		}
