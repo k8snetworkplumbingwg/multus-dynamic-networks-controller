@@ -69,13 +69,26 @@ var _ = Describe("Dynamic Attachment controller", func() {
 
 		Context("with an existing running pod", func() {
 			const (
-				cniVersion  = "0.3.0"
-				ipAddr      = "172.16.0.1"
-				macAddr     = "02:03:04:05:06:07"
-				namespace   = "default"
-				networkName = "tiny-net"
-				podName     = "tiny-winy-pod"
-				podUID      = "abc-def"
+				cniVersion    = "0.3.0"
+				ipAddr        = "172.16.0.1"
+				macAddr       = "02:03:04:05:06:07"
+				namespace     = "default"
+				networkName   = "tiny-net"
+				podName       = "tiny-winy-pod"
+				podUID        = "abc-def"
+				twoInterfaces = `[
+							{
+								"name": "default/tiny-net",
+								"interface": "net0",
+								"dns": {}
+							},
+							{
+								"name": "default/tiny-net-2",
+								"interface": "net1",
+								"mac": "02:03:04:05:06:07",
+								"dns": {}
+							}
+						]`
 			)
 			cniArgs := &map[string]string{"foo": "bar"}
 			var (
@@ -501,19 +514,7 @@ var _ = Describe("Dynamic Attachment controller", func() {
 				JustBeforeEach(func() {
 					pod = updatePodSpec(pod)
 					pod.Annotations[nad.NetworkStatusAnnot] =
-						`[
-							{
-								"name": "default/tiny-net",
-								"interface": "net0",
-								"dns": {}
-							},
-							{
-								"name": "default/tiny-net-2",
-								"interface": "net1",
-								"mac": "02:03:04:05:06:07",
-								"dns": {}
-							}
-						]`
+						twoInterfaces
 					_, err := k8sClient.CoreV1().Pods(namespace).UpdateStatus(
 						context.TODO(),
 						updatePodSpec(pod),
@@ -639,19 +640,7 @@ var _ = Describe("Dynamic Attachment controller", func() {
 					var err error
 					pod = updatePodSpec(pod)
 					pod.Annotations[nad.NetworkStatusAnnot] =
-						`[
-							{
-								"name": "default/tiny-net",
-								"interface": "net0",
-								"dns": {}
-							},
-							{
-								"name": "default/tiny-net-2",
-								"interface": "net1",
-								"mac": "02:03:04:05:06:07",
-								"dns": {}
-							}
-						]`
+						twoInterfaces
 					_, err = k8sClient.CoreV1().Pods(namespace).UpdateStatus(
 						context.TODO(),
 						updatePodSpec(pod, networkName, networkToAdd, networkToAdd1),
