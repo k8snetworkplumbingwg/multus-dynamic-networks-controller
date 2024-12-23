@@ -1,8 +1,7 @@
 module github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller
 
 go 1.22.0
-
-toolchain go1.22.5
+toolchain go1.22.10
 
 require (
 	github.com/containernetworking/cni v1.2.3
@@ -10,7 +9,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.21.0
 	github.com/onsi/gomega v1.35.1
 	github.com/opencontainers/runtime-spec v1.2.0
-	google.golang.org/grpc v1.68.0
+	google.golang.org/grpc v1.69.2
 	gopkg.in/k8snetworkplumbingwg/multus-cni.v4 v4.1.1
 	k8s.io/api v0.29.1
 	k8s.io/apimachinery v0.29.1
@@ -54,7 +53,7 @@ require (
 	golang.org/x/text v0.19.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	golang.org/x/tools v0.26.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240903143218-8af14fe29dc1 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20241015192408-796eee8c2d53 // indirect
 	google.golang.org/protobuf v1.35.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
