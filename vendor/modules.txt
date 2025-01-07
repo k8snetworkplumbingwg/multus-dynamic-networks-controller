@@ -315,7 +315,7 @@ google.golang.org/protobuf/types/known/timestamppb
 # gopkg.in/inf.v0 v0.9.1
 ## explicit
 gopkg.in/inf.v0
-# gopkg.in/k8snetworkplumbingwg/multus-cni.v4 v4.1.1
+# gopkg.in/k8snetworkplumbingwg/multus-cni.v4 v4.1.4
 ## explicit; go 1.21
 gopkg.in/k8snetworkplumbingwg/multus-cni.v4/pkg/logging
 gopkg.in/k8snetworkplumbingwg/multus-cni.v4/pkg/server/api
