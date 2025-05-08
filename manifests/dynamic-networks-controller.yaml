@@ -129,6 +129,7 @@ spec:
               mountPath: /host/run/multus/multus.sock
             - name: cri-socket
               mountPath: /host/run/containerd/containerd.sock
+          terminationMessagePolicy: FallbackToLogsOnError
       terminationGracePeriodSeconds: 10
       volumes:
         - name: dynamic-networks-controller-config-dir
