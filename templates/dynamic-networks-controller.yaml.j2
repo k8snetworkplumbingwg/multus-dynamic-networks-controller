@@ -129,6 +129,7 @@ spec:
               mountPath: /host{{ MULTUS_SOCKET_PATH }}
             - name: cri-socket
               mountPath: /host{{ CRI_SOCKET_PATH }}
+          terminationMessagePolicy: FallbackToLogsOnError
       terminationGracePeriodSeconds: 10
       volumes:
         - name: dynamic-networks-controller-config-dir
