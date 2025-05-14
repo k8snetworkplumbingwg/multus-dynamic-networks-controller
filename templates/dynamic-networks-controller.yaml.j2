@@ -115,6 +115,16 @@ spec:
                 - localhost/healthz
             initialDelaySeconds: 15
             periodSeconds: 5
+          readinessProbe:
+            exec:
+                command:
+                - curl
+                - --fail
+                - --unix-socket
+                - /host{{ MULTUS_SOCKET_PATH }}
+                - localhost/healthz
+            initialDelaySeconds: 15
+            periodSeconds: 5
           resources:
             requests:
               cpu: "100m"
