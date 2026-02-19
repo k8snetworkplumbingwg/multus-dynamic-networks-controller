@@ -77,7 +77,7 @@ type PodNetworksController struct {
 	netAttachDefLister      nadlisterv1.NetworkAttachmentDefinitionLister
 	broadcaster             record.EventBroadcaster
 	recorder                record.EventRecorder
-	workqueue               workqueue.RateLimitingInterface
+	workqueue               workqueue.TypedRateLimitingInterface[*string]
 	nadClientSet            nadclient.Interface
 	containerRuntime        ContainerRuntime
 	multusClient            multuscni.Client
@@ -106,9 +106,11 @@ func NewPodNetworksController(
 		netAttachDefLister:      nadInformers.K8sCniCncfIo().V1().NetworkAttachmentDefinitions().Lister(),
 		recorder:                recorder,
 		broadcaster:             broadcaster,
-		workqueue: workqueue.NewRateLimitingQueueWithConfig(
-			workqueue.DefaultControllerRateLimiter(),
-			workqueue.RateLimitingQueueConfig{Name: AdvertisedName},
+		workqueue: workqueue.NewTypedRateLimitingQueueWithConfig[*string](
+			workqueue.DefaultTypedControllerRateLimiter[*string](),
+			workqueue.TypedRateLimitingQueueConfig[*string]{
+				Name: AdvertisedName,
+			},
 		),
 		k8sClientSet:     k8sClientSet,
 		nadClientSet:     nadClientSet,
@@ -192,7 +194,7 @@ func (pnc *PodNetworksController) processNextWorkItem() bool {
 	ctx := context.Background()
 
 	defer pnc.workqueue.Done(queueItem)
-	podNamespacedName := queueItem.(*string)
+	podNamespacedName := queueItem
 	klog.Infof("extracted update request for pod [%s] from the queue", *podNamespacedName)
 	podNamespace, podName, err := separateNamespaceAndName(*podNamespacedName)
 	if err != nil {
