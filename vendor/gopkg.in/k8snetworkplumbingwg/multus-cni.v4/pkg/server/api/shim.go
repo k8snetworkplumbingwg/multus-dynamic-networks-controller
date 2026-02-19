@@ -16,6 +16,7 @@ package api
 
 import (
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"os"
 	"strings"
@@ -74,6 +75,24 @@ func CmdDel(args *skel.CmdArgs) error {
 	return nil
 }
 
+// CmdGC implements the CNI spec GC command handler
+func CmdGC(args *skel.CmdArgs) error {
+	_, _, err := postRequest(args, WaitUntilAPIReady)
+	if err != nil {
+		return logging.Errorf("CmdGC (shim): %v", err)
+	}
+	return nil
+}
+
+// CmdStatus implements the CNI spec STATUS command handler
+func CmdStatus(args *skel.CmdArgs) error {
+	_, _, err := postRequest(args, WaitUntilAPIReady)
+	if err != nil {
+		return logging.Errorf("CmdStatus (shim): %v", err)
+	}
+	return nil
+}
+
 func postRequest(args *skel.CmdArgs, readinessCheck readyCheckFunc) (*Response, string, error) {
 	multusShimConfig, err := shimConfig(args.StdinData)
 	if err != nil {
@@ -93,6 +112,10 @@ func postRequest(args *skel.CmdArgs, readinessCheck readyCheckFunc) (*Response, 
 	var body []byte
 	body, err = DoCNI("http://dummy/cni", cniRequest, SocketPath(multusShimConfig.MultusSocketDir))
 	if err != nil {
+		var cniErr *cnitypes.Error
+		if stderrors.As(err, &cniErr) {
+			return nil, multusShimConfig.CNIVersion, err
+		}
 		return nil, multusShimConfig.CNIVersion, fmt.Errorf("%s: StdinData: %s", err.Error(), string(args.StdinData))
 	}
 
