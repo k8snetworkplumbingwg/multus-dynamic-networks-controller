@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 )
 
 const (
@@ -24,7 +25,7 @@ type Multus struct {
 
 // LoadConfig loads the configuration for the multus daemon
 func LoadConfig(configPath string) (*Multus, error) {
-	config, err := os.ReadFile(configPath)
+	config, err := os.ReadFile(filepath.Clean(configPath))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the config file's contents: %w", err)
 	}

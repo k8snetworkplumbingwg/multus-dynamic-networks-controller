@@ -38,7 +38,7 @@ func NewClient(socketPath string) *HTTPClient {
 		httpClient: &http.Client{
 			Transport: &http.Transport{
 				DialContext: func(ctx context.Context, network string, addr string) (net.Conn, error) {
-					return net.Dial("unix", socketPath)
+					return (&net.Dialer{}).DialContext(ctx, "unix", socketPath)
 				},
 			},
 		},

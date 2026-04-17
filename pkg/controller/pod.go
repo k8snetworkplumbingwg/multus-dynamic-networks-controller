@@ -290,11 +290,12 @@ func (pnc *PodNetworksController) handleDynamicInterfaceRequest(
 	dynamicAttachmentRequest *DynamicAttachmentRequest,
 ) ([]annotations.AttachmentResult, error) {
 	klog.Infof("handleDynamicInterfaceRequest: read from queue: %v", dynamicAttachmentRequest)
-	if dynamicAttachmentRequest.Type == add {
+	switch dynamicAttachmentRequest.Type {
+	case add:
 		return pnc.addNetworks(dynamicAttachmentRequest)
-	} else if dynamicAttachmentRequest.Type == remove {
+	case remove:
 		return pnc.removeNetworks(dynamicAttachmentRequest)
-	} else {
+	default:
 		klog.Infof("very weird attachment request: %+v", dynamicAttachmentRequest)
 	}
 	klog.Infof("handleDynamicInterfaceRequest: exited & successfully processed: %v", dynamicAttachmentRequest)
