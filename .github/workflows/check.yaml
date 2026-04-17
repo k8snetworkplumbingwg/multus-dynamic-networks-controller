@@ -29,9 +29,9 @@ jobs:
       run: time make build
 
     - name: Linters
-      uses: golangci/golangci-lint-action@v3
+      uses: golangci/golangci-lint-action@v7
       with:
-        version: v1.54.2
+        version: v2.11.4
         args: --timeout 3m --verbose cmd/... pkg/...
 
     - name: Check vendors
