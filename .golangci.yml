@@ -1,61 +1,7 @@
-run:
-  skip-dirs:
-    - pkg/annotations
-
-linters-settings:
-  dupl:
-    threshold: 100
-  funlen:
-    lines: 110
-    statements: 60
-    ignore-comments: true
-  gci:
-    local-prefixes: github.com/maiqueb/multus-dynamic-networks-controller
-  goconst:
-    min-len: 2
-    min-occurrences: 2
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - experimental
-      - opinionated
-      - performance
-      - style
-    disabled-checks:
-      - dupImport # https://github.com/go-critic/go-critic/issues/845
-      - ifElseChain
-      - octalLiteral
-      - paramTypeCombine
-      - whyNoLint
-      - wrapperFunc
-    settings:
-      hugeParam:
-        sizeThreshold: 1024
-  gocyclo:
-    min-complexity: 15
-  goimports:
-    local-prefixes: github.com/maiqueb/multus-dynamic-networks-controller
-  gomnd:
-    settings:
-      mnd:
-        # don't include the "operation" and "assign"
-        checks: argument,case,condition,return
-  govet:
-    check-shadowing: true
-  lll:
-    line-length: 140
-  maligned:
-    suggest-new: true
-  misspell:
-    locale: US
-  nolintlint:
-    allow-leading-space: true # don't require machine-readable nolint directives (i.e. with no leading space)
-    allow-unused: false # report any unused nolint directives
-    require-explanation: false # don't require an explanation for nolint directives
-    require-specific: false # don't require nolint directives to be specific about which linter is being skipped
+version: "2"
 
 linters:
-  disable-all: true
+  default: none
   enable:
     - bodyclose
     - dogsled
@@ -67,12 +13,9 @@ linters:
     - goconst
     - gocritic
     - gocyclo
-    - gofmt
     - goheader
-    - goimports
     - goprintffuncname
     - gosec
-    - gosimple
     - govet
     - ineffassign
     - lll
@@ -82,9 +25,59 @@ linters:
     - nolintlint
     - rowserrcheck
     - staticcheck
-    - stylecheck
-    - typecheck
     - unconvert
     - unparam
     - unused
     - whitespace
+  settings:
+    dupl:
+      threshold: 100
+    funlen:
+      lines: 110
+      statements: 60
+      ignore-comments: true
+    goconst:
+      min-len: 2
+      min-occurrences: 2
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - experimental
+        - opinionated
+        - performance
+        - style
+      disabled-checks:
+        - dupImport # https://github.com/go-critic/go-critic/issues/845
+        - ifElseChain
+        - octalLiteral
+        - paramTypeCombine
+        - whyNoLint
+        - wrapperFunc
+      settings:
+        hugeParam:
+          sizeThreshold: 1024
+    gocyclo:
+      min-complexity: 15
+    govet:
+      enable:
+        - shadow
+    lll:
+      line-length: 140
+    misspell:
+      locale: US
+    nolintlint:
+      allow-unused: false
+      require-explanation: false
+      require-specific: false
+  exclusions:
+    paths:
+      - pkg/annotations
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/maiqueb/multus-dynamic-networks-controller
