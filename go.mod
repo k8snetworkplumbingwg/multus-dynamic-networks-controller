@@ -8,7 +8,7 @@ require (
 	github.com/containernetworking/cni v1.2.3
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.7.5
 	github.com/onsi/ginkgo/v2 v2.28.1
-	github.com/onsi/gomega v1.39.0
+	github.com/onsi/gomega v1.39.1
 	github.com/opencontainers/runtime-spec v1.3.0
 	google.golang.org/grpc v1.80.0
 	gopkg.in/k8snetworkplumbingwg/multus-cni.v4 v4.1.1
