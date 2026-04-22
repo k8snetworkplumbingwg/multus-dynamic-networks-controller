@@ -295,6 +295,14 @@ func (cc CrioClient) RuntimeConfig(
 	return nil, nil
 }
 
+func (cc CrioClient) UpdatePodSandboxResources(
+	context.Context,
+	*crioruntime.UpdatePodSandboxResourcesRequest,
+	...grpc.CallOption,
+) (*crioruntime.UpdatePodSandboxResourcesResponse, error) {
+	return nil, nil
+}
+
 func newContainerStatusResponseWithLinuxNetworkNamespaceInfo(netnsPath string) cri.PodSandboxStatusInfo {
 	return cri.PodSandboxStatusInfo{
 		RuntimeSpec: &specs.Spec{
