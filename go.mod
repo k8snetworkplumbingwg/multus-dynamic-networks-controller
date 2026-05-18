@@ -7,7 +7,7 @@ toolchain go1.25.9
 require (
 	github.com/containernetworking/cni v1.2.3
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.7.5
-	github.com/onsi/ginkgo/v2 v2.28.3
+	github.com/onsi/ginkgo/v2 v2.29.0
 	github.com/onsi/gomega v1.40.0
 	github.com/opencontainers/runtime-spec v1.3.0
 	google.golang.org/grpc v1.80.0
