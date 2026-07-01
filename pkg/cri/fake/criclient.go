@@ -111,6 +111,14 @@ func (cc CrioClient) ListPodSandbox(
 	return res, nil
 }
 
+func (CrioClient) UpdatePodSandboxResources(
+	ctx context.Context,
+	in *crioruntime.UpdatePodSandboxResourcesRequest,
+	opts ...grpc.CallOption,
+) (*crioruntime.UpdatePodSandboxResourcesResponse, error) {
+	return &crioruntime.UpdatePodSandboxResourcesResponse{}, nil
+}
+
 func (CrioClient) CreateContainer(
 	context.Context,
 	*crioruntime.CreateContainerRequest,
