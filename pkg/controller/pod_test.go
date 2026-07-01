@@ -126,7 +126,7 @@ var _ = Describe("Dynamic Attachment controller", func() {
 			})
 
 			JustBeforeEach(func() {
-				k8sClient = fake.NewSimpleClientset(pod)
+				k8sClient = fake.NewClientset(pod)
 				Expect(
 					newDummyPodController(
 						k8sClient,
