@@ -111,6 +111,14 @@ func (cc CrioClient) ListPodSandbox(
 	return res, nil
 }
 
+func (cc CrioClient) StreamPodSandboxes(
+	context.Context,
+	*crioruntime.StreamPodSandboxesRequest,
+	...grpc.CallOption,
+) (crioruntime.RuntimeService_StreamPodSandboxesClient, error) {
+	return nil, nil
+}
+
 func (CrioClient) UpdatePodSandboxResources(
 	ctx context.Context,
 	in *crioruntime.UpdatePodSandboxResourcesRequest,
@@ -156,6 +164,14 @@ func (CrioClient) ListContainers(
 	*crioruntime.ListContainersRequest,
 	...grpc.CallOption,
 ) (*crioruntime.ListContainersResponse, error) {
+	return nil, nil
+}
+
+func (CrioClient) StreamContainers(
+	context.Context,
+	*crioruntime.StreamContainersRequest,
+	...grpc.CallOption,
+) (crioruntime.RuntimeService_StreamContainersClient, error) {
 	return nil, nil
 }
 
@@ -231,6 +247,22 @@ func (CrioClient) ListContainerStats(
 	return nil, nil
 }
 
+func (CrioClient) StreamContainerStats(
+	context.Context,
+	*crioruntime.StreamContainerStatsRequest,
+	...grpc.CallOption,
+) (crioruntime.RuntimeService_StreamContainerStatsClient, error) {
+	return nil, nil
+}
+
+func (CrioClient) StreamPodSandboxStats(
+	context.Context,
+	*crioruntime.StreamPodSandboxStatsRequest,
+	...grpc.CallOption,
+) (crioruntime.RuntimeService_StreamPodSandboxStatsClient, error) {
+	return nil, nil
+}
+
 func (CrioClient) UpdateRuntimeConfig(
 	context.Context,
 	*crioruntime.UpdateRuntimeConfigRequest,
@@ -292,6 +324,14 @@ func (cc CrioClient) ListPodSandboxMetrics(
 	*crioruntime.ListPodSandboxMetricsRequest,
 	...grpc.CallOption,
 ) (*crioruntime.ListPodSandboxMetricsResponse, error) {
+	return nil, nil
+}
+
+func (cc CrioClient) StreamPodSandboxMetrics(
+	context.Context,
+	*crioruntime.StreamPodSandboxMetricsRequest,
+	...grpc.CallOption,
+) (crioruntime.RuntimeService_StreamPodSandboxMetricsClient, error) {
 	return nil, nil
 }
 
