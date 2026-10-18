@@ -161,7 +161,7 @@ func (pnc *PodNetworksController) ignoreHostNetworkedPods(pod *corev1.Pod) bool 
 		namespacedName := annotations.NamespacedName(pod.GetNamespace(), pod.GetName())
 		if haveNetworkAttachments {
 			klog.Warningf("rejecting to add interfaces for host networked pod: %s", namespacedName)
-			pnc.Eventf(pod, corev1.EventTypeWarning, "InterfaceAddRejected", rejectInterfaceAddEventFormat(pod))
+			pnc.Eventf(pod, corev1.EventTypeWarning, "InterfaceAddRejected", "%s", rejectInterfaceAddEventFormat(pod))
 		} else {
 			klog.V(logging.Debug).Infof("host networked pod [%s] got filtered out", namespacedName)
 		}
@@ -376,7 +376,7 @@ func (pnc *PodNetworksController) addNetworks(dynamicAttachmentRequest *DynamicA
 		netToAdd := dynamicAttachmentRequest.Attachments[i]
 		klog.Infof("network to add: %v", netToAdd)
 		failedAddingEvent := func() {
-			pnc.Eventf(pod, corev1.EventTypeWarning, "FailedAddingInterface", failedAddingIfaceEventFormat(pod, &netToAdd))
+			pnc.Eventf(pod, corev1.EventTypeWarning, "FailedAddingInterface", "%s", failedAddingIfaceEventFormat(pod, &netToAdd))
 		}
 
 		netAttachDef, err := pnc.netAttachDefLister.NetworkAttachmentDefinitions(netToAdd.Namespace).Get(netToAdd.Name)
@@ -410,7 +410,7 @@ func (pnc *PodNetworksController) addNetworks(dynamicAttachmentRequest *DynamicA
 		klog.Infof("response: %v", *response.Result)
 
 		attachmentResults = append(attachmentResults, *annotations.NewAttachmentResult(&netToAdd, response))
-		pnc.Eventf(pod, corev1.EventTypeNormal, "AddedInterface", addIfaceEventFormat(pod, &netToAdd))
+		pnc.Eventf(pod, corev1.EventTypeNormal, "AddedInterface", "%s", addIfaceEventFormat(pod, &netToAdd))
 		klog.Infof(
 			"added interface %s to pod %s",
 			annotations.NetworkSelectionElementIndexKey(netToAdd),
@@ -432,7 +432,7 @@ func (pnc *PodNetworksController) removeNetworks(
 		klog.Infof("network to remove: %v", dynamicAttachmentRequest.Attachments[i])
 
 		failedRemovingEvent := func() {
-			pnc.Eventf(pod, corev1.EventTypeWarning, "FailedRemovingInterface", failedRemovingIfaceEventFormat(pod, &netToRemove))
+			pnc.Eventf(pod, corev1.EventTypeWarning, "FailedRemovingInterface", "%s", failedRemovingIfaceEventFormat(pod, &netToRemove))
 		}
 
 		netAttachDef, err := pnc.netAttachDefLister.NetworkAttachmentDefinitions(netToRemove.Namespace).Get(netToRemove.Name)
@@ -465,7 +465,7 @@ func (pnc *PodNetworksController) removeNetworks(
 		}
 
 		attachmentResults = append(attachmentResults, *annotations.NewAttachmentResult(&netToRemove, nil))
-		pnc.Eventf(pod, corev1.EventTypeNormal, "RemovedInterface", removeIfaceEventFormat(pod, &netToRemove))
+		pnc.Eventf(pod, corev1.EventTypeNormal, "RemovedInterface", "%s", removeIfaceEventFormat(pod, &netToRemove))
 		klog.Infof(
 			"removed interface %s from pod %s",
 			annotations.NetworkSelectionElementIndexKey(netToRemove),
