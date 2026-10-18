@@ -136,7 +136,7 @@ spec:
               mountPath: /etc/dynamic-networks-controller/
               readOnly: true
             - name: multus-server-socket
-              mountPath: /host{{ MULTUS_SOCKET_PATH }}
+              mountPath: /host{{ MULTUS_SOCKET_PATH.rsplit("/", 1)[0] }}
             - name: cri-socket
               mountPath: /host{{ CRI_SOCKET_PATH }}
           terminationMessagePolicy: FallbackToLogsOnError
@@ -150,8 +150,8 @@ spec:
                 path: dynamic-networks-config.json
         -  name: multus-server-socket
            hostPath:
-             path: {{ MULTUS_SOCKET_PATH }}
-             type: Socket
+             path: {{ MULTUS_SOCKET_PATH.rsplit("/", 1)[0] }}
+             type: Directory
         -  name: cri-socket
            hostPath:
              path: {{ CRI_SOCKET_PATH }}
