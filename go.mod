@@ -11,7 +11,7 @@ require (
 	github.com/onsi/gomega v1.40.0
 	github.com/opencontainers/runtime-spec v1.3.0
 	google.golang.org/grpc v1.83.2
-	gopkg.in/k8snetworkplumbingwg/multus-cni.v4 v4.3.0
+	gopkg.in/k8snetworkplumbingwg/multus-cni.v4 v4.3.1
 	k8s.io/api v0.36.2
 	k8s.io/apimachinery v0.36.2
 	k8s.io/client-go v0.36.2
